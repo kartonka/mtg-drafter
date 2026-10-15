@@ -1,0 +1,262 @@
+:root {
+  color-scheme: dark;
+  --bg: #14161c;
+  --panel: #1e2230;
+  --border: #2d3348;
+  --text: #e6e8ef;
+  --muted: #8b93a7;
+  --accent: #6d8cff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+.app {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.topbar h1 {
+  font-size: 1.3rem;
+  margin: 0;
+  flex: 1;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d9534f;
+}
+.dot.on {
+  background: #4caf50;
+}
+
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 4px 8px;
+}
+
+input,
+textarea,
+select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.panel h2 {
+  margin: 0 0 8px;
+}
+.panel .field {
+  width: 100%;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.home {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--muted);
+}
+.warn {
+  color: #e0a030;
+  word-break: break-word;
+}
+.error {
+  background: #4a2024;
+  border: 1px solid #8a3a40;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.players {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  width: 100%;
+}
+.players li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.players .name {
+  flex: 1;
+}
+.badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--border);
+  color: var(--muted);
+}
+.badge.ready {
+  background: #1f4a2c;
+  color: #7be08f;
+}
+
+.draft {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+.draft-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.draft-header .primary {
+  margin-left: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.card {
+  width: 100%;
+  border-radius: 4.5%;
+  cursor: pointer;
+  outline: 3px solid transparent;
+  transition: transform 0.08s;
+}
+.card:hover {
+  transform: scale(1.03);
+}
+.card.selected {
+  outline-color: var(--accent);
+}
+
+.waiting {
+  color: var(--muted);
+  padding: 40px 0;
+}
+
+.seats {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.seats li.me {
+  color: var(--text);
+}
+
+.pool {
+  position: sticky;
+  top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.pool h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+.pool ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pool li {
+  padding: 2px 0;
+  cursor: default;
+}
+.pool li:hover {
+  color: var(--accent);
+}
+.preview {
+  position: fixed;
+  right: 320px;
+  top: 80px;
+  width: 280px;
+  border-radius: 4.5%;
+  pointer-events: none;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
