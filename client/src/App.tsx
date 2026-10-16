@@ -37,11 +37,11 @@ export function App() {
                         {view === 'draft' ? (
                             <Draft state={state} send={send} />
                         ) : (
-                            <DeckBuilder picks={state.picks} storageKey={deckKey} done={false} />
+                            <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done={false} />
                         )}
                     </>
                 )}
-                {state?.phase === 'done' && deckKey && <DeckBuilder picks={state.picks} storageKey={deckKey} done />}
+                {state?.phase === 'done' && deckKey && <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done />}
             </main>
         </div>
     );

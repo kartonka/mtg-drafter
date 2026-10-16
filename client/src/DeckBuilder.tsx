@@ -1,11 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState, type DragEvent } from 'react';
 import type { Card } from '../../shared/protocol';
 
 type GroupMode = 'cmc' | 'color';
 
+/** Deck columns hold card ids, left to right. Basic lands are deck-only instances with ids like `b:Forest:x7k2`. */
+interface Layout {
+    columns: string[][];
+    pool: string[];
+}
+
+type DropTarget = { kind: 'column'; index: number } | { kind: 'gap'; index: number } | { kind: 'pool' };
+
 const CMC_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7+', 'Lands'];
 const COLOR_ORDER = ['White', 'Blue', 'Black', 'Red', 'Green', 'Multicolor', 'Colorless', 'Lands'];
 const COLOR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
+
+const isBasic = (id: string) => id.startsWith('b:');
+const byCmcThenName = (a: Card, b: Card) => a.cmc - b.cmc || a.name.localeCompare(b.name);
 
 function groupLabel(c: Card, mode: GroupMode): string {
     if (c.land) return 'Lands';
@@ -14,137 +25,248 @@ function groupLabel(c: Card, mode: GroupMode): string {
     return c.colors.length > 1 ? 'Multicolor' : (COLOR_NAMES[c.colors[0]] ?? 'Colorless');
 }
 
-function group(cards: Card[], mode: GroupMode) {
+function group(cards: Card[], mode: GroupMode): Card[][] {
     const order = mode === 'cmc' ? CMC_ORDER : COLOR_ORDER;
     return order
-        .map((label) => ({
-            label,
-            cards: cards.filter((c) => groupLabel(c, mode) === label).sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name)),
-        }))
-        .filter((g) => g.cards.length > 0);
+        .map((label) => cards.filter((c) => groupLabel(c, mode) === label).sort(byCmcThenName))
+        .filter((g) => g.length > 0);
 }
 
-function readIds(key: string): string[] {
+const cmcRank = (c: Card) => CMC_ORDER.indexOf(groupLabel(c, 'cmc'));
+
+function readLayout(key: string): Layout {
     try {
-        return JSON.parse(localStorage.getItem(key) ?? '[]');
+        const v = JSON.parse(localStorage.getItem(key) ?? 'null');
+        if (Array.isArray(v?.columns) && Array.isArray(v?.pool)) return v;
     } catch {
-        return [];
+        // fall through to an empty layout
     }
+    return { columns: [], pool: [] };
+}
+
+/** Appends to the first column with the same mana value (lands count as their own), else opens a new column in order. */
+function autoPlace(columns: string[][], id: string, cardOf: (id: string) => Card | undefined) {
+    const rank = cmcRank(cardOf(id)!);
+    const i = columns.findIndex((col) => cmcRank(cardOf(col[0])!) >= rank);
+    if (i >= 0 && cmcRank(cardOf(columns[i][0])!) === rank) columns[i].push(id);
+    else columns.splice(i < 0 ? columns.length : i, 0, [id]);
 }
 
 interface Props {
     picks: Card[];
+    basics: Card[];
     /** Per player and table; keeps the deck across reloads. */
     storageKey: string;
     done: boolean;
 }
 
-export function DeckBuilder({ picks, storageKey, done }: Props) {
-    const [deckIds, setDeckIds] = useState(() => new Set(readIds(storageKey)));
-    const [mode, setMode] = useState<GroupMode>(() => (localStorage.getItem('mtg-drafter-group') === 'color' ? 'color' : 'cmc'));
+export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
+    const [raw, setRaw] = useState(() => readLayout(storageKey));
     const [preview, setPreview] = useState<Card | null>(null);
     const [copied, setCopied] = useState('');
+    const [dragId, setDragId] = useState<string | null>(null);
+    const [over, setOver] = useState<string | null>(null);
 
-    const deck = picks.filter((c) => deckIds.has(c.id));
-    const pool = picks.filter((c) => !deckIds.has(c.id));
+    const cardOf = useMemo(() => {
+        const picked = new Map(picks.map((c) => [c.id, c]));
+        const basicByName = new Map(basics.map((c) => [c.name, c]));
+        return (id: string): Card | undefined => {
+            if (!isBasic(id)) return picked.get(id);
+            const basic = basicByName.get(id.split(':')[1]);
+            return basic && { ...basic, id };
+        };
+    }, [picks, basics]);
 
-    const update = (next: Set<string>) => {
-        setDeckIds(next);
-        localStorage.setItem(storageKey, JSON.stringify([...next]));
+    // New picks land in the deck automatically; stale ids are dropped.
+    const layout = useMemo<Layout>(() => {
+        const seen = new Set<string>();
+        const keep = (id: string) => !!cardOf(id) && !seen.has(id) && !!seen.add(id);
+        const columns = raw.columns.map((col) => col.filter(keep)).filter((col) => col.length > 0);
+        const pool = raw.pool.filter(keep);
+        for (const c of picks.filter((c) => !seen.has(c.id)).sort(byCmcThenName)) autoPlace(columns, c.id, cardOf);
+        return { columns, pool };
+    }, [raw, picks, cardOf]);
+
+    const deckCards = layout.columns.flat().map((id) => cardOf(id)!);
+    const poolCards = layout.pool.map((id) => cardOf(id)!).sort(byCmcThenName);
+
+    const commit = (next: Layout) => {
+        setRaw(next);
+        localStorage.setItem(storageKey, JSON.stringify(next));
     };
-    const toggle = (id: string) => {
-        const next = new Set(deckIds);
-        if (!next.delete(id)) next.add(id);
-        update(next);
+
+    const moveTo = (id: string, target: DropTarget) => {
+        const columns = layout.columns.map((col) => col.filter((x) => x !== id));
+        const pool = layout.pool.filter((x) => x !== id);
+        if (target.kind === 'pool') {
+            if (!isBasic(id)) pool.push(id);
+        } else if (target.kind === 'column') {
+            columns[target.index].push(id);
+        } else {
+            columns.splice(target.index, 0, [id]);
+        }
+        commit({ columns: columns.filter((col) => col.length > 0), pool });
+    };
+
+    const clickCard = (id: string) => {
         setPreview(null);
+        if (layout.pool.includes(id)) {
+            const columns = layout.columns.map((col) => [...col]);
+            autoPlace(columns, id, cardOf);
+            commit({ columns, pool: layout.pool.filter((x) => x !== id) });
+        } else {
+            moveTo(id, { kind: 'pool' });
+        }
     };
-    const changeMode = (m: GroupMode) => {
-        setMode(m);
-        localStorage.setItem('mtg-drafter-group', m);
+
+    const arrange = (mode: GroupMode) =>
+        commit({ columns: group(deckCards, mode).map((g) => g.map((c) => c.id)), pool: layout.pool });
+
+    const basicCount = (name: string) => deckCards.filter((c) => isBasic(c.id) && c.name === name).length;
+    const addBasic = (name: string) => {
+        const id = `b:${name}:${Math.random().toString(36).slice(2, 8)}`;
+        const columns = layout.columns.map((col) => [...col]);
+        autoPlace(columns, id, cardOf);
+        commit({ columns, pool: layout.pool });
     };
+    const removeBasic = (name: string) => {
+        const id = [...deckCards].reverse().find((c) => isBasic(c.id) && c.name === name)?.id;
+        if (id) moveTo(id, { kind: 'pool' });
+    };
+
     const copy = async (label: string, cards: Card[]) => {
-        await navigator.clipboard.writeText(cards.map((c) => `1 ${c.name}`).join('\n'));
+        const counts = new Map<string, number>();
+        for (const c of cards) counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+        await navigator.clipboard.writeText([...counts].map(([name, n]) => `${n} ${name}`).join('\n'));
         setCopied(label);
         setTimeout(() => setCopied(''), 1500);
     };
+
+    const dragProps = (id: string) => ({
+        draggable: true,
+        onDragStart: (e: DragEvent) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', id);
+            setDragId(id);
+            setPreview(null);
+        },
+        onDragEnd: () => {
+            setDragId(null);
+            setOver(null);
+        },
+    });
+
+    const zone = (key: string, target: DropTarget) => ({
+        onDragOver: (e: DragEvent) => {
+            if (!dragId) return;
+            e.preventDefault();
+            setOver(key);
+        },
+        onDragLeave: () => setOver(null),
+        onDrop: (e: DragEvent) => {
+            e.preventDefault();
+            if (dragId) moveTo(dragId, target);
+            setDragId(null);
+            setOver(null);
+        },
+    });
+
+    const cls = (base: string, key: string) => `${base}${dragId ? ' active' : ''}${over === key ? ' over' : ''}`;
+    const gap = (index: number) => <div className={cls('gap', `gap${index}`)} {...zone(`gap${index}`, { kind: 'gap', index })} />;
 
     return (
         <div className="deckbuilder">
             <div className="draft-header">
                 <h2>{done ? 'Draft complete' : 'Deck builder'}</h2>
-                <span className="muted">
-                    Click a card to move it between the deck and the pool.
-                </span>
-                <label className="inline">
-                    Group by
-                    <select value={mode} onChange={(e) => changeMode(e.target.value as GroupMode)}>
-                        <option value="cmc">Mana value</option>
-                        <option value="color">Color</option>
-                    </select>
-                </label>
+                <span className="muted">Drag cards between columns, into a gap to start a new column, or click a card to move it in or out of the deck.</span>
             </div>
 
             <div className="section-header">
                 <h3>
-                    Deck ({deck.length}) <span className="muted">· {deck.filter((c) => c.land).length} lands</span>
+                    Deck ({deckCards.length}) <span className="muted">· {deckCards.filter((c) => c.land).length} lands</span>
                 </h3>
-                <button onClick={() => copy('deck', deck)} disabled={deck.length === 0}>
+                <button onClick={() => arrange('cmc')} disabled={deckCards.length === 0}>
+                    Arrange by mana value
+                </button>
+                <button onClick={() => arrange('color')} disabled={deckCards.length === 0}>
+                    Arrange by color
+                </button>
+                <button onClick={() => copy('deck', deckCards)} disabled={deckCards.length === 0}>
                     {copied === 'deck' ? 'Copied!' : 'Copy deck list'}
                 </button>
-                <button onClick={() => update(new Set())} disabled={deck.length === 0}>
-                    Move all to pool
-                </button>
             </div>
-            {deck.length === 0 ? (
-                <p className="waiting">Your deck is empty. Click cards in the pool to add them.</p>
-            ) : (
-                <Columns cards={deck} mode={mode} onClick={toggle} onHover={setPreview} />
+
+            {done && basics.length > 0 && (
+                <div className="basics">
+                    <span className="muted">Basic lands</span>
+                    {basics.map((b) => (
+                        <span key={b.id} className="basic">
+                            <button onClick={() => removeBasic(b.name)} disabled={basicCount(b.name) === 0}>
+                                −
+                            </button>
+                            <span onMouseEnter={() => setPreview(b)} onMouseLeave={() => setPreview(null)}>
+                                {b.name} {basicCount(b.name)}
+                            </span>
+                            <button onClick={() => addBasic(b.name)}>+</button>
+                        </span>
+                    ))}
+                </div>
             )}
 
+            <div className="columns-row">
+                {layout.columns.length === 0 && (
+                    <div className={cls('empty-deck', 'gap0')} {...zone('gap0', { kind: 'gap', index: 0 })}>
+                        Drop cards here to add them to the deck
+                    </div>
+                )}
+                {layout.columns.map((col, i) => (
+                    <div key={i} className="column-with-gap">
+                        {gap(i)}
+                        <div className={cls('stack', `col${i}`)} {...zone(`col${i}`, { kind: 'column', index: i })}>
+                            {col.map((id) => {
+                                const c = cardOf(id)!;
+                                return (
+                                    <img
+                                        key={id}
+                                        src={c.image}
+                                        alt={c.name}
+                                        className="stack-card"
+                                        onClick={() => clickCard(id)}
+                                        onMouseEnter={() => setPreview(c)}
+                                        onMouseLeave={() => setPreview(null)}
+                                        {...dragProps(id)}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+                {layout.columns.length > 0 && gap(layout.columns.length)}
+            </div>
+
             <div className="section-header">
-                <h3>Pool ({pool.length})</h3>
+                <h3>Pool ({poolCards.length})</h3>
                 <button onClick={() => copy('all', picks)} disabled={picks.length === 0}>
                     {copied === 'all' ? 'Copied!' : 'Copy all picks'}
                 </button>
-                <button onClick={() => update(new Set(picks.map((c) => c.id)))} disabled={pool.length === 0}>
-                    Move all to deck
-                </button>
             </div>
-            {pool.length > 0 && <Columns cards={pool} mode={mode} onClick={toggle} onHover={setPreview} />}
+            <div className={cls('pool-grid', 'pool')} {...zone('pool', { kind: 'pool' })}>
+                {poolCards.length === 0 && <span className="muted">Drop cards here to take them out of the deck.</span>}
+                {poolCards.map((c) => (
+                    <img
+                        key={c.id}
+                        src={c.image}
+                        alt={c.name}
+                        className="pool-card"
+                        onClick={() => clickCard(c.id)}
+                        onMouseEnter={() => setPreview(c)}
+                        onMouseLeave={() => setPreview(null)}
+                        {...dragProps(c.id)}
+                    />
+                ))}
+            </div>
 
             {preview && <img className="deck-preview" src={preview.image} alt={preview.name} />}
-        </div>
-    );
-}
-
-interface ColumnsProps {
-    cards: Card[];
-    mode: GroupMode;
-    onClick: (id: string) => void;
-    onHover: (card: Card | null) => void;
-}
-
-function Columns({ cards, mode, onClick, onHover }: ColumnsProps) {
-    return (
-        <div className="columns-row">
-            {group(cards, mode).map((g) => (
-                <div key={g.label} className="stack">
-                    <div className="stack-label">
-                        {g.label} ({g.cards.length})
-                    </div>
-                    {g.cards.map((c) => (
-                        <img
-                            key={c.id}
-                            src={c.image}
-                            alt={c.name}
-                            className="stack-card"
-                            onClick={() => onClick(c.id)}
-                            onMouseEnter={() => onHover(c)}
-                            onMouseLeave={() => onHover(null)}
-                        />
-                    ))}
-                </div>
-            ))}
         </div>
     );
 }
