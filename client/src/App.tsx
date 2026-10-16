@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
 import { Lobby } from './Lobby';
-import { Results } from './Results';
 import { hashCode, useGame } from './useGame';
 
 export function App() {
     const { state, error, connected, busy, send } = useGame();
+    const [view, setView] = useState<'draft' | 'deck'>('draft');
+    const deckKey = state && `mtg-drafter-deck-${state.id}-${state.you}`;
 
     return (
         <div className="app">
@@ -22,8 +24,24 @@ export function App() {
             <main>
                 {!state && <Home busy={busy} send={send} />}
                 {state?.phase === 'lobby' && <Lobby state={state} send={send} />}
-                {state?.phase === 'drafting' && <Draft state={state} send={send} />}
-                {state?.phase === 'done' && <Results state={state} />}
+                {state?.phase === 'drafting' && deckKey && (
+                    <>
+                        <nav className="tabs">
+                            <button className={view === 'draft' ? 'active' : ''} onClick={() => setView('draft')}>
+                                Draft{state.draft?.pack ? ' •' : ''}
+                            </button>
+                            <button className={view === 'deck' ? 'active' : ''} onClick={() => setView('deck')}>
+                                Deck ({state.picks.length})
+                            </button>
+                        </nav>
+                        {view === 'draft' ? (
+                            <Draft state={state} send={send} />
+                        ) : (
+                            <DeckBuilder picks={state.picks} storageKey={deckKey} done={false} />
+                        )}
+                    </>
+                )}
+                {state?.phase === 'done' && deckKey && <DeckBuilder picks={state.picks} storageKey={deckKey} done />}
             </main>
         </div>
     );

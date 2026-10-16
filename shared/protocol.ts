@@ -2,6 +2,11 @@ export interface Card {
     id: string;
     name: string;
     image: string;
+    /** Mana value of the front face. */
+    cmc: number;
+    /** Subset of W U B R G. */
+    colors: string[];
+    land: boolean;
 }
 
 export interface DraftSettings {
@@ -37,6 +42,8 @@ export interface TableView {
     you: string;
     settings: DraftSettings;
     cube: { name: string; size: number; warnings: string[] };
+    /** Basic lands available in unlimited quantity when building the deck. */
+    basics: Card[];
     /** Seat order once the draft has started. */
     players: PlayerView[];
     draft: DraftView | null;

@@ -136,6 +136,7 @@ export class Table {
             you: playerId,
             settings: this.settings,
             cube: { name: this.cube.name, size: this.cube.cards.length, warnings: this.cube.warnings },
+            basics: this.cube.basics,
             players: this.players.map((p, i) => ({
                 id: p.id,
                 name: p.name,

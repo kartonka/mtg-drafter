@@ -4,6 +4,8 @@ export interface Cube {
     name: string;
     cards: Card[];
     warnings: string[];
+    /** Unlimited extra copies for deck building; empty if Scryfall was unreachable. */
+    basics: Card[];
 }
 
 export class CubeError extends Error { }
@@ -15,14 +17,37 @@ const SCRYFALL_HEADERS = {
 };
 const MOXFIELD_UA = process.env.MOXFIELD_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAX_CUBE_SIZE = 2000;
+
+/** Pulls deck-building metadata out of a Moxfield or Scryfall card object; null if any is missing. */
+function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land'> | null {
+    const typeLine = c?.type_line ?? c?.card_faces?.[0]?.type_line;
+    const colors = c?.colors ?? c?.card_faces?.[0]?.colors;
+    if (typeof c?.cmc !== 'number' || typeof typeLine !== 'string' || !Array.isArray(colors)) return null;
+    return { cmc: c.cmc, colors: colors.filter((x: unknown) => typeof x === 'string'), land: /\bLand\b/.test(typeLine.split(' // ')[0]) };
+}
 const MOXFIELD_URL = /^https?:\/\/(?:www\.)?moxfield\.com\/(cubes|decks)\/([A-Za-z0-9_-]+)/i;
 
 export async function loadCube(source: { url?: string; text?: string }): Promise<Cube> {
     const url = source.url?.trim();
     const text = source.text?.trim();
-    if (text) return loadFromText(text);
-    if (url) return loadFromMoxfield(url);
-    throw new CubeError('Provide a Moxfield link or a card list.');
+    let cube: Cube;
+    if (text) cube = await loadFromText(text);
+    else if (url) cube = await loadFromMoxfield(url);
+    else throw new CubeError('Provide a Moxfield link or a card list.');
+    cube.basics = await basicLands();
+    return cube;
+}
+
+let basicsCache: Promise<Card[]> | null = null;
+
+function basicLands(): Promise<Card[]> {
+    basicsCache ??= scryfallLookup(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'])
+        .then(({ found }) => found.map((c) => ({ ...c, id: `basic-${c.name}` })))
+        .catch(() => {
+            basicsCache = null;
+            return [];
+        });
+    return basicsCache;
 }
 
 async function loadFromMoxfield(url: string): Promise<Cube> {
@@ -73,8 +98,9 @@ async function loadFromMoxfield(url: string): Promise<Cube> {
         if (seen.has(key)) continue;
         seen.add(key);
         const sid: unknown = c.scryfall_id ?? c.scryfallId;
-        if (typeof sid === 'string' && /^[0-9a-f-]{36}$/i.test(sid)) {
-            cards.push({ id: '', name, image: `https://cards.scryfall.io/normal/front/${sid[0]}/${sid[1]}/${sid}.jpg` });
+        const meta = cardMeta(c);
+        if (meta && typeof sid === 'string' && /^[0-9a-f-]{36}$/i.test(sid)) {
+            cards.push({ id: '', name, image: `https://cards.scryfall.io/normal/front/${sid[0]}/${sid[1]}/${sid}.jpg`, ...meta });
         } else {
             needLookup.push(name);
         }
@@ -115,7 +141,7 @@ function finish(name: string, cards: Card[], warnings: string[]): Cube {
     if (cards.length === 0) throw new CubeError('No cards found in that list.');
     if (cards.length > MAX_CUBE_SIZE) throw new CubeError(`Cube is too large (max ${MAX_CUBE_SIZE} cards).`);
     cards.forEach((c, i) => (c.id = String(i)));
-    return { name: name.slice(0, 80), cards, warnings };
+    return { name: name.slice(0, 80), cards, warnings, basics: [] };
 }
 
 async function scryfallLookup(names: string[]): Promise<{ found: Card[]; notFound: string[] }> {
@@ -141,8 +167,9 @@ async function scryfallLookup(names: string[]): Promise<{ found: Card[]; notFoun
         const byName = new Map<string, Card>();
         for (const c of data.data ?? []) {
             const image: string | undefined = c.image_uris?.normal ?? c.card_faces?.[0]?.image_uris?.normal;
-            if (!image) continue;
-            const card: Card = { id: '', name: c.name, image };
+            const meta = cardMeta(c);
+            if (!image || !meta) continue;
+            const card: Card = { id: '', name: c.name, image, ...meta };
             byName.set(String(c.name).toLowerCase(), card);
             for (const face of c.card_faces ?? []) byName.set(String(face.name).toLowerCase(), card);
         }

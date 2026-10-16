@@ -260,3 +260,72 @@ select {
   pointer-events: none;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
 }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.inline {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 12px;
+}
+.section-header h3 {
+  margin: 0;
+  margin-right: auto;
+}
+
+.columns-row {
+  --w: 150px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.stack {
+  width: var(--w);
+}
+.stack-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.stack-card {
+  display: block;
+  width: 100%;
+  border-radius: 4.5%;
+  cursor: pointer;
+}
+.stack-card + .stack-card {
+  margin-top: calc(var(--w) * -1.393 + 32px);
+}
+.stack-card:hover {
+  outline: 2px solid var(--accent);
+}
+
+.deck-preview {
+  position: fixed;
+  right: 24px;
+  top: 90px;
+  width: 300px;
+  border-radius: 4.5%;
+  pointer-events: none;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
