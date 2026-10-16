@@ -7,11 +7,16 @@ export interface Card {
     /** Subset of W U B R G. */
     colors: string[];
     land: boolean;
+    /** Rough strength within its cube, 0 (weak) to 1 (strong). Used by bots. */
+    power: number;
 }
+
+export type BotStrategy = 'random' | 'smart';
 
 export interface DraftSettings {
     packsPerPlayer: number;
     cardsPerPack: number;
+    botStrategy: BotStrategy;
 }
 
 export type Phase = 'lobby' | 'drafting' | 'done';
@@ -48,6 +53,8 @@ export interface TableView {
     players: PlayerView[];
     draft: DraftView | null;
     picks: Card[];
+    /** Only filled for the host once the draft is done. */
+    botPicks: { id: string; name: string; picks: Card[] }[];
 }
 
 export const LIMITS = {
@@ -66,7 +73,7 @@ export type ClientMsg =
     | { t: 'addBot' }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
     | { t: 'kick'; playerId: string }
-    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number }
+    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; botStrategy: BotStrategy }
     | { t: 'start' }
     | { t: 'pick'; cardId: string }
     | { t: 'leave' };

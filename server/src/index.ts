@@ -110,7 +110,7 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             break;
         }
         case 'settings':
-            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack);
+            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack, msg.botStrategy);
             break;
         case 'start':
             table.start(conn.playerId);

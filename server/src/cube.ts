@@ -10,6 +10,9 @@ export interface Cube {
 
 export class CubeError extends Error { }
 
+/** A card plus the raw popularity signals used to compute `power` once the whole cube is known. */
+type ScoredCard = Card & { rank?: number; usd?: number };
+
 const SCRYFALL_HEADERS = {
     'User-Agent': 'mtg-drafter/0.1',
     Accept: 'application/json;q=0.9,*/*;q=0.8',
@@ -18,7 +21,7 @@ const SCRYFALL_HEADERS = {
 const MOXFIELD_UA = process.env.MOXFIELD_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAX_CUBE_SIZE = 2000;
 
-/** Pulls deck-building metadata out of a Moxfield or Scryfall card object; null if any is missing. */
+/** Pulls deck-building metadata out of a Scryfall card object; null if any is missing. */
 function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land'> | null {
     const typeLine = c?.type_line ?? c?.card_faces?.[0]?.type_line;
     const colors = c?.colors ?? c?.card_faces?.[0]?.colors;
@@ -41,8 +44,8 @@ export async function loadCube(source: { url?: string; text?: string }): Promise
 let basicsCache: Promise<Card[]> | null = null;
 
 function basicLands(): Promise<Card[]> {
-    basicsCache ??= scryfallLookup(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'])
-        .then(({ found }) => found.map((c) => ({ ...c, id: `basic-${c.name}` })))
+    basicsCache ??= scryfallLookup(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((name) => ({ name })))
+        .then(({ found }) => found.map(({ rank, usd, ...c }) => ({ ...c, id: `basic-${c.name}` })))
         .catch(() => {
             basicsCache = null;
             return [];
@@ -88,8 +91,8 @@ async function loadFromMoxfield(url: string): Promise<Cube> {
     const entries: any[] = Array.isArray(board) ? board : board ? Object.values(board) : [];
 
     const seen = new Set<string>();
-    const cards: Card[] = [];
-    const needLookup: string[] = [];
+    const refs: CardRef[] = [];
+    const images = new Map<string, string>();
     for (const entry of entries) {
         const c = entry?.card ?? entry;
         const name: unknown = c?.name;
@@ -97,65 +100,105 @@ async function loadFromMoxfield(url: string): Promise<Cube> {
         const key = name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
+        refs.push({ name });
+        // Keep the printing the cube owner chose.
         const sid: unknown = c.scryfall_id ?? c.scryfallId;
-        const meta = cardMeta(c);
-        if (meta && typeof sid === 'string' && /^[0-9a-f-]{36}$/i.test(sid)) {
-            cards.push({ id: '', name, image: `https://cards.scryfall.io/normal/front/${sid[0]}/${sid[1]}/${sid}.jpg`, ...meta });
-        } else {
-            needLookup.push(name);
+        if (typeof sid === 'string' && /^[0-9a-f-]{36}$/i.test(sid)) {
+            images.set(key, `https://cards.scryfall.io/normal/front/${sid[0]}/${sid[1]}/${sid}.jpg`);
         }
     }
 
-    const warnings: string[] = [];
-    if (needLookup.length) {
-        const { found, notFound } = await scryfallLookup(needLookup);
-        cards.push(...found);
-        if (notFound.length) warnings.push(`Not found on Scryfall: ${notFound.join(', ')}`);
-    }
-
-    return finish(typeof json.name === 'string' ? json.name : 'Moxfield cube', cards, warnings);
+    const { found, notFound } = await scryfallLookup(refs, images);
+    const warnings = notFound.length ? [`Not found on Scryfall: ${notFound.join(', ')}`] : [];
+    return finish(typeof json.name === 'string' ? json.name : 'Moxfield cube', found, warnings);
 }
+
+/** A card to look up: by exact printing when set and number are known, otherwise by name. */
+interface CardRef {
+    name: string;
+    set?: string;
+    number?: string;
+}
+
+// "1 Name (SET) 123", optionally followed by a foil marker such as *F*
+const PRINTING_LINE = /^(?:\d+x?\s+)?(.+?)\s+\(([A-Za-z0-9]+)\)\s+(\S+)(?:\s+\*\w+\*)?$/;
+
+/** Moxfield writes double-faced cards as "Front / Back"; Scryfall uses "Front // Back". */
+const scryfallName = (name: string) => name.replace(/ \/ /g, ' // ');
 
 async function loadFromText(text: string): Promise<Cube> {
     const lines = text.split(/\r?\n/);
     if (lines.length > MAX_CUBE_SIZE) throw new CubeError(`Card list is too long (max ${MAX_CUBE_SIZE} lines).`);
 
     const seen = new Set<string>();
-    const names: string[] = [];
+    const refs: CardRef[] = [];
     for (const raw of lines) {
         const line = raw.trim();
-        if (!line || line.startsWith('//') || /^(sideboard|maybeboard|deck|commander)\b:?$/i.test(line)) continue;
-        // "1 Name", "1x Name (SET) 123"
-        const name = line.replace(/^\d+x?\s+/i, '').replace(/\s+\([A-Za-z0-9]+\)(\s+\S+)*$/, '').trim();
-        if (!name || seen.has(name.toLowerCase())) continue;
-        seen.add(name.toLowerCase());
-        names.push(name);
+        if (/^(sideboard|maybeboard|considering)\b:?$/i.test(line)) break;
+        if (!line || line.startsWith('//') || /^SB:/i.test(line) || /^(deck|commander|companion)\b:?$/i.test(line)) continue;
+
+        const printing = PRINTING_LINE.exec(line);
+        const ref: CardRef = printing
+            ? { name: scryfallName(printing[1]), set: printing[2].toLowerCase(), number: printing[3] }
+            : { name: scryfallName(line.replace(/^\d+x?\s+/i, '').trim()) };
+        const key = ref.name.toLowerCase();
+        if (!ref.name || seen.has(key)) continue;
+        seen.add(key);
+        refs.push(ref);
     }
 
-    const { found, notFound } = await scryfallLookup(names);
-    const warnings = notFound.length ? [`Not found on Scryfall: ${notFound.join(', ')}`] : [];
+    const { found, notFound, fallback } = await scryfallLookup(refs);
+    const warnings: string[] = [];
+    if (notFound.length) warnings.push(`Not found on Scryfall: ${notFound.join(', ')}`);
+    if (fallback.length) warnings.push(`Edition not found, used the default printing: ${fallback.join(', ')}`);
     return finish('Pasted cube', found, warnings);
 }
 
-function finish(name: string, cards: Card[], warnings: string[]): Cube {
+function finish(name: string, cards: ScoredCard[], warnings: string[]): Cube {
     if (cards.length === 0) throw new CubeError('No cards found in that list.');
     if (cards.length > MAX_CUBE_SIZE) throw new CubeError(`Cube is too large (max ${MAX_CUBE_SIZE} cards).`);
-    cards.forEach((c, i) => (c.id = String(i)));
+
+    // Cube staples are popular (low EDHREC rank) and tend to be pricier.
+    const popularity = percentiles(cards.map((c) => (c.rank === undefined ? undefined : -c.rank)));
+    const price = percentiles(cards.map((c) => c.usd));
+    cards.forEach((c, i) => {
+        const signals = [popularity[i], price[i]].filter((s): s is number => s !== undefined);
+        c.power = signals.length ? signals.reduce((a, b) => a + b, 0) / signals.length : 0.5;
+        c.id = String(i);
+        delete c.rank;
+        delete c.usd;
+    });
     return { name: name.slice(0, 80), cards, warnings, basics: [] };
 }
 
-async function scryfallLookup(names: string[]): Promise<{ found: Card[]; notFound: string[] }> {
-    const found: Card[] = [];
-    const notFound: string[] = [];
+/** Rank of each defined value among the defined ones, scaled 0..1. */
+function percentiles(values: (number | undefined)[]): (number | undefined)[] {
+    const order = values.flatMap((v, i) => (v === undefined ? [] : [i])).sort((a, b) => values[a]! - values[b]!);
+    const out: (number | undefined)[] = values.map(() => undefined);
+    order.forEach((index, pos) => (out[index] = order.length > 1 ? pos / (order.length - 1) : 0.5));
+    return out;
+}
 
-    for (let i = 0; i < names.length; i += 75) {
-        const batch = names.slice(i, i + 75);
+async function scryfallLookup(
+    refs: CardRef[],
+    images?: Map<string, string>,
+): Promise<{ found: ScoredCard[]; notFound: string[]; fallback: string[] }> {
+    const found: ScoredCard[] = [];
+    const notFound: string[] = [];
+    const fallback: string[] = [];
+    const retryByName: CardRef[] = [];
+    const printingKey = (set: string, number: string) => `${set}/${number}`.toLowerCase();
+
+    for (let i = 0; i < refs.length; i += 75) {
+        const batch = refs.slice(i, i + 75);
         let data: any;
         try {
             const res = await fetch('https://api.scryfall.com/cards/collection', {
                 method: 'POST',
                 headers: SCRYFALL_HEADERS,
-                body: JSON.stringify({ identifiers: batch.map((name) => ({ name })) }),
+                body: JSON.stringify({
+                    identifiers: batch.map((r) => (r.set && r.number ? { set: r.set, collector_number: r.number } : { name: r.name })),
+                }),
                 signal: AbortSignal.timeout(15000),
             });
             if (!res.ok) throw new Error(String(res.status));
@@ -164,21 +207,42 @@ async function scryfallLookup(names: string[]): Promise<{ found: Card[]; notFoun
             throw new CubeError('Could not reach Scryfall to look up the cards. Try again in a moment.');
         }
 
-        const byName = new Map<string, Card>();
+        const byName = new Map<string, ScoredCard>();
+        const byPrinting = new Map<string, ScoredCard>();
         for (const c of data.data ?? []) {
             const image: string | undefined = c.image_uris?.normal ?? c.card_faces?.[0]?.image_uris?.normal;
             const meta = cardMeta(c);
             if (!image || !meta) continue;
-            const card: Card = { id: '', name: c.name, image, ...meta };
+            const usd = Number(c.prices?.usd);
+            const card: ScoredCard = {
+                id: '',
+                name: c.name,
+                image,
+                ...meta,
+                power: 0.5,
+                rank: typeof c.edhrec_rank === 'number' ? c.edhrec_rank : undefined,
+                usd: usd > 0 ? usd : undefined,
+            };
             byName.set(String(c.name).toLowerCase(), card);
             for (const face of c.card_faces ?? []) byName.set(String(face.name).toLowerCase(), card);
+            byPrinting.set(printingKey(String(c.set), String(c.collector_number)), card);
         }
-        for (const name of batch) {
-            const card = byName.get(name.toLowerCase());
-            if (card) found.push({ ...card });
-            else notFound.push(name);
+        for (const ref of batch) {
+            const exact = ref.set && ref.number;
+            const card = exact ? byPrinting.get(printingKey(ref.set!, ref.number!)) : byName.get(ref.name.toLowerCase());
+            if (card) found.push({ ...card, image: images?.get(ref.name.toLowerCase()) ?? card.image });
+            else if (exact) retryByName.push({ name: ref.name });
+            else notFound.push(ref.name);
         }
-        if (i + 75 < names.length) await new Promise((r) => setTimeout(r, 120));
+        if (i + 75 < refs.length) await new Promise((r) => setTimeout(r, 120));
     }
-    return { found, notFound };
+
+    // Printings Scryfall does not know about fall back to the default printing.
+    if (retryByName.length) {
+        const retry = await scryfallLookup(retryByName, images);
+        found.push(...retry.found);
+        notFound.push(...retry.notFound);
+        fallback.push(...retryByName.map((r) => r.name).filter((n) => !retry.notFound.includes(n)));
+    }
+    return { found, notFound, fallback };
 }

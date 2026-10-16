@@ -11,6 +11,7 @@
 1 Anointed Peacekeeper
 1 Arcbound Ravager
 1 Archon of Cruelty
+1 Archon of Emeria
 1 Arid Mesa
 1 Armageddon
 1 Ashen Rider
@@ -22,7 +23,6 @@
 1 Baleful Strix
 1 Baloth Prime
 1 Barrowgoyf
-1 Basalt Monolith
 1 Batterskull
 1 Bayou
 1 Berserk
@@ -34,14 +34,12 @@
 1 Blood Crypt
 1 Bloodstained Mire
 1 Bloodtithe Harvester
-1 Blooming Marsh
 1 Bolas's Citadel
 1 Bone Shards
 1 Bonecrusher Giant
 1 Boomerang Basics
 1 Booster Tutor
 1 Boseiju, Who Endures
-1 Botanical Sanctum
 1 Brain Freeze
 1 Brainstorm
 1 Brazen Borrower
@@ -53,6 +51,7 @@
 1 Cathar Commando
 1 Caustic Bronco
 1 Cecil, Dark Knight
+1 Celestial Colonnade
 1 Chain Lightning
 1 Chandra, Torch of Defiance
 1 Channel
@@ -62,7 +61,6 @@
 1 City of Traitors
 1 Cityscape Leveler
 1 Clarion Conqueror
-1 Cogwork Librarian
 1 Collective Brutality
 1 Comet, Stellar Pup
 1 Commercial District
@@ -75,6 +73,7 @@
 1 Counterspell
 1 Coveted Jewel
 1 Craterhoof Behemoth
+1 Creeping Tar Pit
 1 Crucible of Worlds
 1 Currency Converter
 1 Dack Fayden
@@ -131,6 +130,7 @@
 1 Figure of Destiny
 1 Figure of Fable
 1 Fire Covenant
+1 Fireblast
 1 Flash
 1 Flickerwisp
 1 Flooded Strand
@@ -201,7 +201,6 @@
 1 Krang, Utrom Warlord
 1 Kroxa, Titan of Death's Hunger
 1 Laelia, the Blade Reforged
-1 Lake of the Dead
 1 Lavaspur Boots
 1 Legion Extruder
 1 Leovold, Emissary of Trest
@@ -265,6 +264,7 @@
 1 Nissa, Who Shakes the World
 1 Noble Hierarch
 1 Nurturing Peatland
+1 Oath of Druids
 1 Occult Epiphany
 1 Ocelot Pride
 1 Oko, Thief of Crowns
@@ -311,7 +311,6 @@
 1 Raffine's Tower
 1 Ragavan, Nimble Pilferer
 1 Ramunap Excavator
-1 Raph & Mikey, Troublemakers
 1 Raucous Theater
 1 Raugrin Triome
 1 Ravenous Robots
@@ -323,9 +322,7 @@
 1 Relic of Sauron
 1 Remand
 1 Reprieve
-1 Restless Anchorage
 1 Restless Cottage
-1 Restless Ridgeline
 1 Restless Vents
 1 Restless Vinestalk
 1 Retrofitter Foundry
@@ -351,6 +348,7 @@
 1 Sheoldred, the Apocalypse
 1 Sheoldred's Edict
 1 Shifting Woodland
+1 Shifting Ceratops
 1 Show and Tell
 1 Showdown of the Skalds
 1 Sin, Spira's Punishment
@@ -380,12 +378,14 @@
 1 Subtlety
 1 Sundering Titan
 1 Sunset Saboteur
+1 Super Shredder
 1 Suplex
 1 Supreme Verdict
 1 Swords to Plowshares
 1 Sylvan Library
 1 Sylvan Safekeeper
 1 Taiga
+1 Tainted Pact
 1 Talisman of Creativity
 1 Talisman of Dominance
 1 Talisman of Impulse
@@ -405,7 +405,7 @@
 1 Tezzeret, Cruel Captain
 1 Thalia, Guardian of Thraben
 1 Thassa's Oracle
-2 The Fantasticar
+1 The Fantasticar
 1 The Legend of Kuruk
 1 The Mightstone and Weakstone
 1 The One Ring
@@ -461,6 +461,7 @@
 1 Volrath's Stronghold
 1 Wall of Roots
 1 Wasteland
+1 Waterlogged Grove
 1 Watery Grave
 1 Wheel of Fortune
 1 Windswept Heath

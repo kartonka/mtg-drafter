@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LIMITS, type ClientMsg, type TableView } from '../../shared/protocol';
+import { LIMITS, type BotStrategy, type ClientMsg, type TableView } from '../../shared/protocol';
 import { copyText } from './clipboard';
 
 const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
@@ -12,7 +12,7 @@ interface Props {
 export function Lobby({ state, send }: Props) {
     const isHost = state.you === state.hostId;
     const me = state.players.find((p) => p.id === state.you);
-    const { packsPerPlayer, cardsPerPack } = state.settings;
+    const { packsPerPlayer, cardsPerPack, botStrategy } = state.settings;
     const needed = state.players.length * packsPerPlayer * cardsPerPack;
     const tooFew = needed > state.cube.size;
     const allReady = state.players.every((p) => p.ready);
@@ -73,7 +73,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={packsPerPlayer}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack, botStrategy })}
                     >
                         {range(1, LIMITS.maxPacks).map((n) => (
                             <option key={n}>{n}</option>
@@ -85,11 +85,22 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={cardsPerPack}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value) })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value), botStrategy })}
                     >
                         {range(LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack).map((n) => (
                             <option key={n}>{n}</option>
                         ))}
+                    </select>
+                </label>
+                <label className="field">
+                    Bot strategy
+                    <select
+                        disabled={!isHost}
+                        value={botStrategy}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, botStrategy: e.target.value as BotStrategy })}
+                    >
+                        <option value="smart">Smart (colors and card strength)</option>
+                        <option value="random">Random</option>
                     </select>
                 </label>
                 <p className={tooFew ? 'warn' : 'muted'}>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BotPicks } from './BotPicks';
 import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
 import { Lobby } from './Lobby';
@@ -41,7 +42,12 @@ export function App() {
                         )}
                     </>
                 )}
-                {state?.phase === 'done' && deckKey && <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done />}
+                {state?.phase === 'done' && deckKey && (
+                    <>
+                        <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done />
+                        {state.botPicks.length > 0 && <BotPicks bots={state.botPicks} />}
+                    </>
+                )}
             </main>
         </div>
     );

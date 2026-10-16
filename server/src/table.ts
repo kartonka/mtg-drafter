@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { LIMITS, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
+import { botPick } from './bot';
 import type { Cube } from './cube';
 import { Draft, makePacks, shuffle } from './draft';
 
@@ -37,7 +38,7 @@ export class Table {
     hostId = '';
     phase: Phase = 'lobby';
     draft: Draft | null = null;
-    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15 };
+    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, botStrategy: 'smart' };
     lastActive = Date.now();
     private botCount = 0;
 
@@ -72,12 +73,13 @@ export class Table {
         if (p) p.ready = !!ready;
     }
 
-    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown) {
+    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown, botStrategy: unknown) {
         this.requireHost(byId);
         this.requireLobby();
         this.settings = {
             packsPerPlayer: clamp(packsPerPlayer, 1, LIMITS.maxPacks),
             cardsPerPack: clamp(cardsPerPack, LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack),
+            botStrategy: botStrategy === 'random' ? 'random' : 'smart',
         };
     }
 
@@ -156,6 +158,10 @@ export class Table {
                 }
                 : null,
             picks: d && seat >= 0 ? d.picks[seat] : [],
+            botPicks:
+                d && this.phase === 'done' && playerId === this.hostId
+                    ? this.players.flatMap((p, i) => (p.isBot ? [{ id: p.id, name: p.name, picks: d.picks[i] }] : []))
+                    : [],
         };
     }
 
@@ -188,7 +194,7 @@ export class Table {
             this.players.forEach((p, seat) => {
                 const pack = p.isBot ? d.currentPack(seat) : null;
                 if (pack && !d.done) {
-                    d.pick(seat, pack[Math.floor(Math.random() * pack.length)].id);
+                    d.pick(seat, botPick(pack, d.picks[seat], this.settings.botStrategy).id);
                     acted = true;
                 }
             });

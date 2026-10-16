@@ -394,3 +394,13 @@ select {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
   z-index: 10;
 }
+
+.bot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bot-card {
+  width: 110px;
+  border-radius: 4.5%;
+}
