@@ -9,6 +9,22 @@ npm install
 npm run dev      # client on http://localhost:5173, server on :3001
 ```
 
+## Host on your LAN
+
+```
+npm install
+npm run build
+npm start
+```
+
+The server listens on all network interfaces, port 3001 (set `PORT` to change it). Others open `http://<your-LAN-IP>:3001`; find the IP with `ipconfig` (use the adapter on the network you share, e.g. Wi-Fi). Open that same address yourself too, rather than `localhost`, so "Copy invite link" produces a link others can use.
+
+If friends cannot connect, allow Node.js through Windows Firewall for private networks, or run in an admin PowerShell:
+
+```
+New-NetFirewallRule -DisplayName "MTG Drafter" -Direction Inbound -Protocol TCP -LocalPort 3001 -Action Allow
+```
+
 ## Production / free hosting
 
 ```

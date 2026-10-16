@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LIMITS, type ClientMsg, type TableView } from '../../shared/protocol';
+import { copyText } from './clipboard';
 
 const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
@@ -18,7 +19,7 @@ export function Lobby({ state, send }: Props) {
     const [copied, setCopied] = useState(false);
 
     const copyLink = async () => {
-        await navigator.clipboard.writeText(`${location.origin}/#${state.id}`);
+        await copyText(`${location.origin}/#${state.id}`);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };

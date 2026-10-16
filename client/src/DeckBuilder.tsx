@@ -1,5 +1,7 @@
 import { useMemo, useState, type DragEvent } from 'react';
 import type { Card } from '../../shared/protocol';
+import { copyText } from './clipboard';
+import { exportProxyPdf } from './proxyPdf';
 
 type GroupMode = 'cmc' | 'color';
 
@@ -64,6 +66,7 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
     const [raw, setRaw] = useState(() => readLayout(storageKey));
     const [preview, setPreview] = useState<Card | null>(null);
     const [copied, setCopied] = useState('');
+    const [exporting, setExporting] = useState(false);
     const [dragId, setDragId] = useState<string | null>(null);
     const [over, setOver] = useState<string | null>(null);
 
@@ -137,9 +140,20 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
     const copy = async (label: string, cards: Card[]) => {
         const counts = new Map<string, number>();
         for (const c of cards) counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
-        await navigator.clipboard.writeText([...counts].map(([name, n]) => `${n} ${name}`).join('\n'));
+        await copyText([...counts].map(([name, n]) => `${n} ${name}`).join('\n'));
         setCopied(label);
         setTimeout(() => setCopied(''), 1500);
+    };
+
+    const exportPdf = async () => {
+        setExporting(true);
+        try {
+            await exportProxyPdf(deckCards, 'deck-proxies.pdf');
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Could not create the PDF.');
+        } finally {
+            setExporting(false);
+        }
     };
 
     const dragProps = (id: string) => ({
@@ -193,6 +207,9 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
                 </button>
                 <button onClick={() => copy('deck', deckCards)} disabled={deckCards.length === 0}>
                     {copied === 'deck' ? 'Copied!' : 'Copy deck list'}
+                </button>
+                <button onClick={exportPdf} disabled={deckCards.length === 0 || exporting}>
+                    {exporting ? 'Creating PDF…' : 'Export proxies (PDF)'}
                 </button>
             </div>
 
