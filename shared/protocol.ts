@@ -91,6 +91,7 @@ export const LIMITS = {
 
 export type ClientMsg =
     | { t: 'create'; name: string; cube: { url?: string; text?: string } }
+    | { t: 'createSaved'; name: string; cubeName: string }
     | { t: 'join'; tableId: string; name: string }
     | { t: 'resume'; tableId: string; token: string }
     | { t: 'review'; tableId: string }

@@ -1,4 +1,6 @@
 import type { Card } from '../../shared/protocol';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 export interface Cube {
     name: string;
@@ -20,6 +22,72 @@ const SCRYFALL_HEADERS = {
 };
 const MOXFIELD_UA = process.env.MOXFIELD_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAX_CUBE_SIZE = 2000;
+const MAX_CUBE_NAME = 80;
+const CUBE_STORE = path.resolve(import.meta.dirname, '../data/cubes.json');
+const BUNDLED_CUBES = [
+    { name: 'imbur', path: path.resolve(import.meta.dirname, '../../default_cubes/imbur.txt') },
+    { name: 'marci-cube', path: path.resolve(import.meta.dirname, '../../marci-cube.txt') },
+];
+
+interface SavedCubeList { name: string; text: string }
+
+const cubeKey = (name: string) => name.trim().toLocaleLowerCase();
+
+function readSavedCubeLists(): SavedCubeList[] {
+    let saved: SavedCubeList[] = [];
+    try {
+        const data: unknown = JSON.parse(readFileSync(CUBE_STORE, 'utf8'));
+        if (!Array.isArray(data) || data.some((item) => typeof item?.name !== 'string' || typeof item?.text !== 'string')) {
+            throw new Error('Invalid saved cube data.');
+        }
+        saved = data;
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            if (err instanceof CubeError) throw err;
+            throw new CubeError('Saved cube storage is unreadable.');
+        }
+    }
+
+    const byName = new Map(saved.map((cube) => [cubeKey(cube.name), cube]));
+    for (const builtin of BUNDLED_CUBES) {
+        if (!byName.has(cubeKey(builtin.name)) && existsSync(builtin.path)) {
+            byName.set(cubeKey(builtin.name), { name: builtin.name, text: readFileSync(builtin.path, 'utf8') });
+        }
+    }
+    return [...byName.values()];
+}
+
+export function listSavedCubeLists(): { name: string }[] {
+    return readSavedCubeLists().map(({ name }) => ({ name }));
+}
+
+export function saveCubeList(rawName: unknown, rawText: unknown): { name: string; overwritten: boolean } {
+    const name = typeof rawName === 'string' ? rawName.trim().slice(0, MAX_CUBE_NAME) : '';
+    const text = typeof rawText === 'string' ? rawText.trim() : '';
+    if (!name) throw new CubeError('Enter a name for this cube list.');
+    if (!text) throw new CubeError('Paste a card list first.');
+    if (text.split(/\r?\n/).length > MAX_CUBE_SIZE) throw new CubeError(`Card list is too long (max ${MAX_CUBE_SIZE} lines).`);
+
+    const all = readSavedCubeLists();
+    const overwritten = all.some((cube) => cubeKey(cube.name) === cubeKey(name));
+    const saved = all.filter((cube) => ![...BUNDLED_CUBES.map((b) => cubeKey(b.name))].includes(cubeKey(cube.name)));
+    const next = saved.filter((cube) => cubeKey(cube.name) !== cubeKey(name));
+    next.push({ name, text });
+
+    mkdirSync(path.dirname(CUBE_STORE), { recursive: true });
+    const temp = `${CUBE_STORE}.tmp`;
+    writeFileSync(temp, JSON.stringify(next, null, 2));
+    renameSync(temp, CUBE_STORE);
+    return { name, overwritten };
+}
+
+export async function loadSavedCube(name: string): Promise<Cube> {
+    const saved = readSavedCubeLists().find((cube) => cubeKey(cube.name) === cubeKey(name));
+    if (!saved) throw new CubeError('No saved cube list with that name.');
+    const cube = await loadFromText(saved.text, saved.name);
+    cube.basics = await basicLands();
+    return cube;
+}
 
 /** Pulls deck-building metadata out of a Scryfall card object; null if any is missing. */
 function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land'> | null {
@@ -126,7 +194,7 @@ const PRINTING_LINE = /^(?:\d+x?\s+)?(.+?)\s+\(([A-Za-z0-9]+)\)\s+(\S+)(?:\s+\*\
 /** Moxfield writes double-faced cards as "Front / Back"; Scryfall uses "Front // Back". */
 const scryfallName = (name: string) => name.replace(/ \/ /g, ' // ');
 
-async function loadFromText(text: string): Promise<Cube> {
+async function loadFromText(text: string, cubeName = 'Pasted cube'): Promise<Cube> {
     const lines = text.split(/\r?\n/);
     if (lines.length > MAX_CUBE_SIZE) throw new CubeError(`Card list is too long (max ${MAX_CUBE_SIZE} lines).`);
 
@@ -151,7 +219,7 @@ async function loadFromText(text: string): Promise<Cube> {
     const warnings: string[] = [];
     if (notFound.length) warnings.push(`Not found on Scryfall: ${notFound.join(', ')}`);
     if (fallback.length) warnings.push(`Edition not found, used the default printing: ${fallback.join(', ')}`);
-    return finish('Pasted cube', found, warnings);
+    return finish(cubeName, found, warnings);
 }
 
 function finish(name: string, cards: ScoredCard[], warnings: string[]): Cube {

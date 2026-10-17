@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BotPicks } from './BotPicks';
 import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
@@ -63,11 +63,47 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
     const [name, setName] = useState(() => localStorage.getItem('mtg-drafter-name') ?? '');
     const [url, setUrl] = useState('');
     const [text, setText] = useState('');
-    const [pasteMode, setPasteMode] = useState(false);
     const [code, setCode] = useState(hashCode());
     const [reviewCode, setReviewCode] = useState(hashReviewCode() || hashCode());
+    const [savedCubes, setSavedCubes] = useState<{ name: string }[]>([]);
+    const [selectedCube, setSelectedCube] = useState('');
+    const [cubeName, setCubeName] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [libraryMessage, setLibraryMessage] = useState('');
+
+    const refreshSavedCubes = async (selectName?: string) => {
+        const response = await fetch('/api/cubes');
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message ?? 'Could not load saved cube lists.');
+        const cubes: { name: string }[] = result.cubes ?? [];
+        setSavedCubes(cubes);
+        setSelectedCube((current) => selectName ?? (cubes.some((cube) => cube.name === current) ? current : cubes[0]?.name ?? ''));
+    };
+
+    useEffect(() => {
+        refreshSavedCubes().catch((err) => setLibraryMessage(err instanceof Error ? err.message : 'Could not load saved cube lists.'));
+    }, []);
 
     const remember = () => localStorage.setItem('mtg-drafter-name', name.trim());
+    const saveList = async () => {
+        setSaving(true);
+        setLibraryMessage('');
+        try {
+            const response = await fetch('/api/cubes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: cubeName, text }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message ?? 'Could not save the cube list.');
+            await refreshSavedCubes(result.name);
+            setLibraryMessage(result.overwritten ? `Updated “${result.name}”.` : `Saved “${result.name}”.`);
+        } catch (err) {
+            setLibraryMessage(err instanceof Error ? err.message : 'Could not save the cube list.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="home">
@@ -78,29 +114,50 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
 
             <div className="columns">
                 <section className="panel">
-                    <h2>Create a table</h2>
-                    {pasteMode ? (
-                        <label className="field">
-                            Card list (one card per line)
-                            <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'1 Lightning Bolt\n1 Counterspell'} />
-                        </label>
-                    ) : (
-                        <label className="field">
-                            Moxfield cube link
-                            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://moxfield.com/cubes/…" />
-                        </label>
-                    )}
-                    <button className="link" onClick={() => setPasteMode(!pasteMode)}>
-                        {pasteMode ? 'Use a Moxfield link instead' : 'Paste a card list instead'}
+                    <h2>Saved cube lists</h2>
+                    <label className="field">
+                        Cube list
+                        <select value={selectedCube} onChange={(e) => setSelectedCube(e.target.value)} disabled={savedCubes.length === 0}>
+                            {savedCubes.length === 0 && <option value="">No saved lists</option>}
+                            {savedCubes.map((cube) => <option key={cube.name} value={cube.name}>{cube.name}</option>)}
+                        </select>
+                    </label>
+                    <button className="primary" disabled={busy || !name.trim() || !selectedCube} onClick={() => {
+                        remember();
+                        send({ t: 'createSaved', name, cubeName: selectedCube });
+                    }}>
+                        {busy ? 'Loading cube…' : 'Create table from saved list'}
                     </button>
-                    <button
-                        className="primary"
-                        disabled={busy || !name.trim() || !(pasteMode ? text.trim() : url.trim())}
-                        onClick={() => {
-                            remember();
-                            send({ t: 'create', name, cube: pasteMode ? { text } : { url } });
-                        }}
-                    >
+                    {libraryMessage && <span className="muted">{libraryMessage}</span>}
+                </section>
+
+                <section className="panel">
+                    <h2>Upload or replace a cube list</h2>
+                    <label className="field">
+                        Cube list name
+                        <input value={cubeName} maxLength={80} onChange={(e) => setCubeName(e.target.value)} placeholder="My cube" />
+                    </label>
+                    <label className="field">
+                        Card list (one card per line)
+                        <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'1 Lightning Bolt\n1 Counterspell'} />
+                    </label>
+                    <span className="muted">Saving a name that already exists replaces that list. Moxfield exports can be pasted here.</span>
+                    <button className="primary" disabled={saving || !cubeName.trim() || !text.trim()} onClick={saveList}>
+                        {saving ? 'Saving…' : savedCubes.some((cube) => cube.name.toLocaleLowerCase() === cubeName.trim().toLocaleLowerCase()) ? 'Replace saved list' : 'Save cube list'}
+                    </button>
+                </section>
+
+                <section className="panel">
+                    <h2>Use a Moxfield link</h2>
+                    <label className="field">
+                        Moxfield cube link
+                        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://moxfield.com/cubes/…" />
+                    </label>
+                    <span className="muted">Moxfield may block server requests. Paste its exported card list above if loading fails.</span>
+                    <button className="primary" disabled={busy || !name.trim() || !url.trim()} onClick={() => {
+                        remember();
+                        send({ t: 'create', name, cube: { url } });
+                    }}>
                         {busy ? 'Loading cube…' : 'Create table'}
                     </button>
                 </section>

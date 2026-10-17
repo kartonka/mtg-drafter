@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
-import { CubeError, loadCube } from './cube';
+import { CubeError, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
 import { GameError, Table, cleanName, makeTableCode } from './table';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -50,13 +50,14 @@ function dropIfAbandoned(table: Table) {
 
 async function handle(ws: WebSocket, msg: ClientMsg) {
     switch (msg.t) {
-        case 'create': {
+        case 'create':
+        case 'createSaved': {
             if (creating.has(ws)) return;
             if (tables.size >= MAX_TABLES) throw new GameError('The server is busy. Try again later.');
             const name = cleanName(msg.name);
             creating.add(ws);
             try {
-                const cube = await loadCube(msg.cube ?? {});
+                const cube = msg.t === 'createSaved' ? await loadSavedCube(msg.cubeName) : await loadCube(msg.cube ?? {});
                 if (ws.readyState !== ws.OPEN) return;
                 let id = makeTableCode();
                 while (tables.has(id)) id = makeTableCode();
@@ -136,7 +137,23 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
 }
 
 const app = express();
+app.use(express.json({ limit: '1mb' }));
 app.get('/api/health', (_req, res) => res.json({ ok: true, tables: tables.size }));
+app.get('/api/cubes', (_req, res) => {
+    try {
+        res.json({ cubes: listSavedCubeLists() });
+    } catch (err) {
+        res.status(500).json({ message: err instanceof Error ? err.message : 'Could not load saved cube lists.' });
+    }
+});
+app.post('/api/cubes', (req, res) => {
+    try {
+        res.json(saveCubeList(req.body?.name, req.body?.text));
+    } catch (err) {
+        const status = err instanceof CubeError ? 400 : 500;
+        res.status(status).json({ message: err instanceof Error ? err.message : 'Could not save cube list.' });
+    }
+});
 
 const clientDist = path.resolve(import.meta.dirname, '../../client/dist');
 if (existsSync(clientDist)) {

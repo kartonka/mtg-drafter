@@ -92,7 +92,7 @@ export function useGame() {
         const ws = wsRef.current;
         if (ws?.readyState !== WebSocket.OPEN) return setError('Not connected to the server.');
         setError(null);
-        if (msg.t === 'create' || msg.t === 'join') setBusy(true);
+        if (msg.t === 'create' || msg.t === 'createSaved' || msg.t === 'join') setBusy(true);
         if (msg.t === 'review') {
             setBusy(true);
             history.replaceState(null, '', `#review-${msg.tableId.toUpperCase()}`);

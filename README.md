@@ -37,7 +37,11 @@ Any free Node host works (e.g. Render free web service: build `npm install --inc
 
 ## Moxfield
 
-The server fetches the list from Moxfield's unofficial API. Moxfield sits behind Cloudflare and may reject server requests (HTTP 403). If so, use "Paste a card list instead" (Moxfield: Export, copy as text). Set `MOXFIELD_USER_AGENT` if Moxfield issues you an API user agent.
+The server can fetch a cube from Moxfield's unofficial API, but Moxfield may reject requests (HTTP 403). If loading fails, use Moxfield's Export command, then paste and save the list in the app. Set `MOXFIELD_USER_AGENT` if Moxfield issues you an API user agent.
+
+## Saved cube lists
+
+Paste a list, give it a name, and save it to the server's `server/data/cubes.json` file. Saving another list with the same name replaces it. The existing `default_cubes/imbur.txt` and `marci-cube.txt` files are available in the saved-list selector as `imbur` and `marci-cube`.
 
 ## Draft reviews
 
