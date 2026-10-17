@@ -142,7 +142,12 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             table.start(conn.playerId);
             break;
         case 'pick':
-            table.pick(conn.playerId, msg.cardIds, msg.additionalCardId);
+            {
+                // Accept the old single-card shape from already-open browser tabs.
+                const pick = msg as typeof msg & { cardId?: string; cardIds?: string[] };
+                const cardIds = pick.cardIds ?? (pick.cardId ? [pick.cardId] : []);
+                table.pick(conn.playerId, cardIds, pick.additionalCardId);
+            }
             break;
         case 'leave':
             conns.delete(ws);
@@ -199,7 +204,10 @@ wss.on('connection', (ws) => {
             await handle(ws, msg);
         } catch (err) {
             if (err instanceof GameError || err instanceof CubeError) send(ws, { t: 'error', message: err.message });
-            else console.error(err);
+            else {
+                console.error(err);
+                send(ws, { t: 'error', message: 'The server could not process that action. Reload the page and try again.' });
+            }
         }
     });
 });
