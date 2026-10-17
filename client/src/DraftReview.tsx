@@ -31,7 +31,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
             <div className="review-title">
                 <div>
                     <h2>Draft review · {review.id}</h2>
-                    <span className="muted">{review.cubeName}</span>
+                    <span className="muted">{review.cubeName} · Started {review.startedAt}</span>
                 </div>
                 <button onClick={onClose}>Back</button>
             </div>

@@ -38,6 +38,7 @@ export class Table {
     hostId = '';
     phase: Phase = 'lobby';
     draft: Draft | null = null;
+    startedAt: string | null = null;
     settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, botStrategy: 'smart' };
     lastActive = Date.now();
     private botCount = 0;
@@ -111,6 +112,7 @@ export class Table {
         }
 
         this.players = shuffle(this.players);
+        this.startedAt = new Date().toISOString();
         this.draft = new Draft(makePacks(this.cube.cards, this.players.length, packsPerPlayer, cardsPerPack), this.players.length);
         this.phase = 'drafting';
         this.advance();
@@ -172,6 +174,7 @@ export class Table {
         return {
             id: this.id,
             cubeName: this.cube.name,
+            startedAt: this.startedAt!,
             players: this.players.map((player, seat) => ({
                 id: player.id,
                 name: player.name,

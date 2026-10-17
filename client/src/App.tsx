@@ -4,7 +4,7 @@ import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
 import { DraftReview } from './DraftReview';
 import { Lobby } from './Lobby';
-import { hashCode, hashReviewCode, useGame } from './useGame';
+import { hashCode, useGame } from './useGame';
 
 export function App() {
     const { state, review, error, connected, busy, send, clearReview } = useGame();
@@ -64,24 +64,35 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
     const [url, setUrl] = useState('');
     const [text, setText] = useState('');
     const [code, setCode] = useState(hashCode());
-    const [reviewCode, setReviewCode] = useState(hashReviewCode() || hashCode());
-    const [savedCubes, setSavedCubes] = useState<{ name: string }[]>([]);
+    const [savedCubes, setSavedCubes] = useState<{ name: string; updatedAt: string }[]>([]);
+    const [pastDrafts, setPastDrafts] = useState<{ tableId: string; cubeName: string; startedAt: string }[]>([]);
+    const [selectedDraft, setSelectedDraft] = useState('');
     const [selectedCube, setSelectedCube] = useState('');
     const [cubeName, setCubeName] = useState('');
     const [saving, setSaving] = useState(false);
     const [libraryMessage, setLibraryMessage] = useState('');
+    const [reviewMessage, setReviewMessage] = useState('');
 
     const refreshSavedCubes = async (selectName?: string) => {
         const response = await fetch('/api/cubes');
         const result = await response.json();
         if (!response.ok) throw new Error(result.message ?? 'Could not load saved cube lists.');
-        const cubes: { name: string }[] = result.cubes ?? [];
+        const cubes: { name: string; updatedAt: string }[] = result.cubes ?? [];
         setSavedCubes(cubes);
         setSelectedCube((current) => selectName ?? (cubes.some((cube) => cube.name === current) ? current : cubes[0]?.name ?? ''));
     };
 
     useEffect(() => {
         refreshSavedCubes().catch((err) => setLibraryMessage(err instanceof Error ? err.message : 'Could not load saved cube lists.'));
+        fetch('/api/reviews')
+            .then(async (response) => {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message ?? 'Could not load past drafts.');
+                const drafts: { tableId: string; cubeName: string; startedAt: string }[] = result.drafts ?? [];
+                setPastDrafts(drafts);
+                setSelectedDraft(drafts[0]?.tableId ?? '');
+            })
+            .catch((err) => setReviewMessage(err instanceof Error ? err.message : 'Could not load past drafts.'));
     }, []);
 
     const remember = () => localStorage.setItem('mtg-drafter-name', name.trim());
@@ -119,7 +130,7 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                         Cube list
                         <select value={selectedCube} onChange={(e) => setSelectedCube(e.target.value)} disabled={savedCubes.length === 0}>
                             {savedCubes.length === 0 && <option value="">No saved lists</option>}
-                            {savedCubes.map((cube) => <option key={cube.name} value={cube.name}>{cube.name}</option>)}
+                            {savedCubes.map((cube) => <option key={cube.name} value={cube.name}>{cube.name} ({new Date(cube.updatedAt).toLocaleDateString()})</option>)}
                         </select>
                     </label>
                     <button className="primary" disabled={busy || !name.trim() || !selectedCube} onClick={() => {
@@ -183,10 +194,16 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                 <section className="panel">
                     <h2>Review a draft</h2>
                     <label className="field">
-                        Table code
-                        <input value={reviewCode} maxLength={8} onChange={(e) => setReviewCode(e.target.value.toUpperCase())} placeholder="ABCDE" />
+                        Past draft
+                        <select value={selectedDraft} onChange={(e) => setSelectedDraft(e.target.value)} disabled={pastDrafts.length === 0}>
+                            {pastDrafts.length === 0 && <option value="">No completed drafts saved</option>}
+                            {pastDrafts.map((draft) => <option key={draft.tableId} value={draft.tableId}>
+                                {draft.tableId} — {draft.startedAt} — {draft.cubeName}
+                            </option>)}
+                        </select>
                     </label>
-                    <button className="primary" disabled={busy || !reviewCode.trim()} onClick={() => send({ t: 'review', tableId: reviewCode.trim() })}>
+                    {reviewMessage && <span className="muted">{reviewMessage}</span>}
+                    <button className="primary" disabled={busy || !selectedDraft} onClick={() => send({ t: 'review', tableId: selectedDraft })}>
                         {busy ? 'Loading draft…' : 'Open review'}
                     </button>
                 </section>

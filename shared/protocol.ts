@@ -60,6 +60,8 @@ export interface DraftReviewPlayer {
 export interface DraftReviewView {
     id: string;
     cubeName: string;
+    /** ISO 8601 UTC time when drafting began. */
+    startedAt: string;
     players: DraftReviewPlayer[];
 }
 

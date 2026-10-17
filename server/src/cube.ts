@@ -1,5 +1,5 @@
 import type { Card } from '../../shared/protocol';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export interface Cube {
@@ -29,7 +29,7 @@ const BUNDLED_CUBES = [
     { name: 'marci-cube', path: path.resolve(import.meta.dirname, '../../marci-cube.txt') },
 ];
 
-interface SavedCubeList { name: string; text: string }
+interface SavedCubeList { name: string; text: string; updatedAt: string }
 
 const cubeKey = (name: string) => name.trim().toLocaleLowerCase();
 
@@ -37,10 +37,18 @@ function readSavedCubeLists(): SavedCubeList[] {
     let saved: SavedCubeList[] = [];
     try {
         const data: unknown = JSON.parse(readFileSync(CUBE_STORE, 'utf8'));
-        if (!Array.isArray(data) || data.some((item) => typeof item?.name !== 'string' || typeof item?.text !== 'string')) {
+        if (!Array.isArray(data) || data.some((item) =>
+            typeof item?.name !== 'string' || typeof item?.text !== 'string' ||
+            (item.updatedAt !== undefined && typeof item.updatedAt !== 'string')
+        )) {
             throw new Error('Invalid saved cube data.');
         }
-        saved = data;
+        const storeDate = statSync(CUBE_STORE).mtime.toISOString();
+        saved = data.map((item) => ({
+            name: item.name,
+            text: item.text,
+            updatedAt: typeof item.updatedAt === 'string' && !Number.isNaN(Date.parse(item.updatedAt)) ? item.updatedAt : storeDate,
+        }));
     } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
             if (err instanceof CubeError) throw err;
@@ -51,14 +59,18 @@ function readSavedCubeLists(): SavedCubeList[] {
     const byName = new Map(saved.map((cube) => [cubeKey(cube.name), cube]));
     for (const builtin of BUNDLED_CUBES) {
         if (!byName.has(cubeKey(builtin.name)) && existsSync(builtin.path)) {
-            byName.set(cubeKey(builtin.name), { name: builtin.name, text: readFileSync(builtin.path, 'utf8') });
+            byName.set(cubeKey(builtin.name), {
+                name: builtin.name,
+                text: readFileSync(builtin.path, 'utf8'),
+                updatedAt: statSync(builtin.path).mtime.toISOString(),
+            });
         }
     }
     return [...byName.values()];
 }
 
-export function listSavedCubeLists(): { name: string }[] {
-    return readSavedCubeLists().map(({ name }) => ({ name }));
+export function listSavedCubeLists(): { name: string; updatedAt: string }[] {
+    return readSavedCubeLists().map(({ name, updatedAt }) => ({ name, updatedAt }));
 }
 
 export function saveCubeList(rawName: unknown, rawText: unknown): { name: string; overwritten: boolean } {
@@ -72,7 +84,7 @@ export function saveCubeList(rawName: unknown, rawText: unknown): { name: string
     const overwritten = all.some((cube) => cubeKey(cube.name) === cubeKey(name));
     const saved = all.filter((cube) => ![...BUNDLED_CUBES.map((b) => cubeKey(b.name))].includes(cubeKey(cube.name)));
     const next = saved.filter((cube) => cubeKey(cube.name) !== cubeKey(name));
-    next.push({ name, text });
+    next.push({ name, text, updatedAt: new Date().toISOString() });
 
     mkdirSync(path.dirname(CUBE_STORE), { recursive: true });
     const temp = `${CUBE_STORE}.tmp`;

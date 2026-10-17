@@ -41,7 +41,9 @@ The server can fetch a cube from Moxfield's unofficial API, but Moxfield may rej
 
 ## Saved cube lists
 
-Paste a list, give it a name, and save it to the server's `server/data/cubes.json` file. Saving another list with the same name replaces it. The existing `default_cubes/imbur.txt` and `marci-cube.txt` files are available in the saved-list selector as `imbur` and `marci-cube`.
+Paste a list, give it a name, and save it to the server's `server/data/cubes.json` file. Saving another list with the same name replaces it. The existing `default_cubes/imbur.txt` and `marci-cube.txt` files are available in the saved-list selector as `imbur` and `marci-cube`; the selector shows each list's last edit date.
+
+Completed draft logs are archived in `server/data/draft-reviews` and appear in the past-draft selector with their table code and exact UTC start timestamp. Both saved lists and archived reviews survive server restarts when the host preserves the server filesystem.
 
 ## Draft reviews
 

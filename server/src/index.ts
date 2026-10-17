@@ -5,6 +5,7 @@ import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
 import { CubeError, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
+import { archiveDraftReview, getArchivedDraftReview, listArchivedDraftReviews } from './reviewArchive';
 import { GameError, Table, cleanName, makeTableCode } from './table';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -14,13 +15,25 @@ const TABLE_TTL_MS = 12 * 60 * 60 * 1000;
 const tables = new Map<string, Table>();
 const conns = new WeakMap<WebSocket, { tableId: string; playerId: string }>();
 const creating = new WeakSet<WebSocket>();
+const archivedInProcess = new Set<string>();
 
 const send = (ws: WebSocket, msg: ServerMsg) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 };
 
 function broadcast(table: Table) {
+    archiveCompletedDraft(table);
     for (const p of table.players) if (p.ws) send(p.ws, { t: 'state', state: table.view(p.id) });
+}
+
+function archiveCompletedDraft(table: Table) {
+    if (table.phase !== 'done' || archivedInProcess.has(table.id)) return;
+    try {
+        archiveDraftReview(table.reviewView());
+        archivedInProcess.add(table.id);
+    } catch (err) {
+        console.error('Could not archive completed draft:', err);
+    }
 }
 
 function attach(ws: WebSocket, table: Table, playerId: string) {
@@ -90,9 +103,13 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         }
         case 'review': {
             const table = tables.get(String(msg.tableId).toUpperCase());
-            if (!table) return send(ws, { t: 'error', message: 'No draft with that table code.' });
-            table.touch();
-            send(ws, { t: 'review', review: table.reviewView() });
+            if (table) {
+                table.touch();
+                archiveCompletedDraft(table);
+            }
+            const review = table?.reviewView() ?? getArchivedDraftReview(String(msg.tableId));
+            if (!review) return send(ws, { t: 'error', message: 'No completed draft with that table code.' });
+            send(ws, { t: 'review', review });
             return;
         }
     }
@@ -146,6 +163,7 @@ app.get('/api/cubes', (_req, res) => {
         res.status(500).json({ message: err instanceof Error ? err.message : 'Could not load saved cube lists.' });
     }
 });
+app.get('/api/reviews', (_req, res) => res.json({ drafts: listArchivedDraftReviews() }));
 app.post('/api/cubes', (req, res) => {
     try {
         res.json(saveCubeList(req.body?.name, req.body?.text));
