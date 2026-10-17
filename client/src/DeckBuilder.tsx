@@ -1,5 +1,5 @@
-import { useMemo, useState, type DragEvent } from 'react';
-import type { Card } from '../../shared/protocol';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import type { Card, DeckLayout } from '../../shared/protocol';
 import { copyText } from './clipboard';
 import { exportProxyPdf } from './proxyPdf';
 import { useCoarsePointer } from './useCoarsePointer';
@@ -8,10 +8,7 @@ import { ZoomOverlay } from './ZoomOverlay';
 type GroupMode = 'cmc' | 'color' | 'type';
 
 /** Deck columns hold card ids, left to right. Basic lands are deck-only instances with ids like `b:Forest:x7k2`. */
-interface Layout {
-    columns: string[][];
-    pool: string[];
-}
+type Layout = DeckLayout;
 
 type DropTarget = { kind: 'column'; index: number } | { kind: 'gap'; index: number } | { kind: 'pool' };
 
@@ -75,10 +72,14 @@ interface Props {
     /** Per player and table; keeps the deck across reloads. */
     storageKey: string;
     done: boolean;
+    initialLayout?: DeckLayout;
+    persistLocal?: boolean;
+    onSave?: (layout: DeckLayout) => void;
 }
 
-export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
-    const [raw, setRaw] = useState(() => readLayout(storageKey));
+export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, persistLocal = true, onSave }: Props) {
+    const [raw, setRaw] = useState(() => initialLayout ?? readLayout(storageKey));
+    const lastSaved = useRef('');
     const [preview, setPreview] = useState<Card | null>(null);
     const [copied, setCopied] = useState('');
     const [exporting, setExporting] = useState(false);
@@ -116,8 +117,16 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
 
     const commit = (next: Layout) => {
         setRaw(next);
-        localStorage.setItem(storageKey, JSON.stringify(next));
+        if (persistLocal) localStorage.setItem(storageKey, JSON.stringify(next));
     };
+
+    useEffect(() => {
+        if (!done || !onSave) return;
+        const serialized = JSON.stringify(layout);
+        if (serialized === lastSaved.current) return;
+        lastSaved.current = serialized;
+        onSave(layout);
+    }, [done, layout, onSave]);
 
     const moveTo = (id: string, target: DropTarget) => {
         const columns = layout.columns.map((col) => col.filter((x) => x !== id));

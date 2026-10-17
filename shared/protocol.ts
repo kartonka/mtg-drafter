@@ -64,6 +64,13 @@ export interface DraftReviewPlayer {
     isBot: boolean;
     picks: Card[];
     log: DraftLogEntry[];
+    /** Optional so draft archives written before deck saving remain readable. */
+    builtDeck?: DeckLayout;
+}
+
+export interface DeckLayout {
+    columns: string[][];
+    pool: string[];
 }
 
 export interface DraftReviewView {
@@ -71,6 +78,8 @@ export interface DraftReviewView {
     cubeName: string;
     /** ISO 8601 UTC time when drafting began. */
     startedAt: string;
+    /** Optional because earlier archives did not include basic-land metadata. */
+    basics?: Card[];
     players: DraftReviewPlayer[];
 }
 
@@ -115,6 +124,7 @@ export type ClientMsg =
     | { t: 'start' }
     | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'reservePick'; cardIds: string[]; additionalCardId?: string }
+    | { t: 'saveDeck'; deck: DeckLayout }
     | { t: 'leave' };
 
 export type ServerMsg =

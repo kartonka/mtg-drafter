@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { DeckLayout } from '../../shared/protocol';
 import { BotPicks } from './BotPicks';
 import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
@@ -12,6 +13,7 @@ export function App() {
     const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
     const [useLibrarian, setUseLibrarian] = useState(false);
     const deckKey = state && `mtg-drafter-deck-${state.id}-${state.you}`;
+    const saveDeck = useCallback((deck: DeckLayout) => send({ t: 'saveDeck', deck }), [send]);
     const packKey = state?.phase === 'drafting'
         ? `${state.id}:${state.you}:${state.draft?.pack?.map((card) => card.id).join(',') ?? ''}`
         : '';
@@ -67,7 +69,7 @@ export function App() {
                             <button className={view === 'deck' ? 'active' : ''} onClick={() => setView('deck')}>Deck</button>
                             <button onClick={() => send({ t: 'review', tableId: state.id })}>Review draft</button>
                         </nav>
-                        <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done />
+                        <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} onSave={saveDeck} done />
                         {state.botPicks.length > 0 && <BotPicks bots={state.botPicks} />}
                     </>
                 )}

@@ -205,6 +205,11 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         case 'reservePick':
             table.reservePick(conn.playerId, msg.cardIds, msg.additionalCardId);
             return;
+        case 'saveDeck':
+            table.saveDeck(conn.playerId, msg.deck);
+            archiveDraftReview(table.reviewView());
+            archivedInProcess.add(table.id);
+            break;
         case 'pick':
             {
                 // Accept the old single-card shape from already-open browser tabs.

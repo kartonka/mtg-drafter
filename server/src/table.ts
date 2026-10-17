@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import { LIMITS, type Card, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
+import { LIMITS, type Card, type DeckLayout, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
 import { botPick } from './bot';
 import type { Cube } from './cube';
 import { Draft, makePacks } from './draft';
@@ -43,6 +43,7 @@ export class Table {
     lastActive = Date.now();
     private readonly pickDeadlines = new Map<string, number>();
     private readonly reservedPicks = new Map<string, { cardIds: string[]; additionalCardId?: string }>();
+    private readonly builtDecks = new Map<string, DeckLayout>();
     private botCount = 0;
 
     constructor(readonly id: string, readonly cube: Cube) { }
@@ -188,6 +189,36 @@ export class Table {
         else this.pickDeadlines.set(playerId, deadline);
     }
 
+    saveDeck(playerId: string, value: unknown) {
+        if (this.phase !== 'done' || !this.draft?.done) throw new GameError('You can save a deck after the draft is finished.');
+        const seat = this.players.findIndex((player) => player.id === playerId && !player.isBot);
+        if (seat < 0) throw new GameError('Only a player can save their drafted deck.');
+        const deck = value as Partial<DeckLayout> | null;
+        if (!deck || !Array.isArray(deck.columns) || !Array.isArray(deck.pool) || deck.columns.length > 100 || deck.pool.length > 2000) {
+            throw new GameError('That deck layout is invalid.');
+        }
+        const columns = deck.columns.map((column) => {
+            if (!Array.isArray(column) || column.length > 2000 || column.some((id) => typeof id !== 'string')) {
+                throw new GameError('That deck layout is invalid.');
+            }
+            return [...column];
+        });
+        const pool = [...deck.pool];
+        if (pool.some((id) => typeof id !== 'string')) throw new GameError('That deck layout is invalid.');
+        const ids = [...columns.flat(), ...pool];
+        if (ids.length > 2200 || new Set(ids).size !== ids.length) throw new GameError('That deck layout is invalid.');
+        const drafted = new Set(this.draft!.picks[seat].map((card) => card.id));
+        const basicPrefixes = this.cube.basics.map((card) => `b:${card.name}:`);
+        const isBasicInstance = (id: string) => basicPrefixes.some((prefix) =>
+            id.startsWith(prefix) && /^[a-z0-9]{1,6}$/i.test(id.slice(prefix.length))
+        );
+        if (ids.some((id) => !drafted.has(id) && !isBasicInstance(id))) {
+            throw new GameError('That deck contains a card you did not draft.');
+        }
+        if ([...drafted].some((id) => !ids.includes(id))) throw new GameError('The saved layout must include all drafted cards.');
+        this.builtDecks.set(playerId, { columns, pool });
+    }
+
     player(id: string) {
         return this.players.find((p) => p.id === id);
     }
@@ -239,12 +270,14 @@ export class Table {
             id: this.id,
             cubeName: this.cube.name,
             startedAt: this.startedAt!,
+            basics: this.cube.basics,
             players: this.players.map((player, seat) => ({
                 id: player.id,
                 name: player.name,
                 isBot: player.isBot,
                 picks: d.picks[seat],
                 log: d.logs[seat],
+                ...(this.builtDecks.has(player.id) ? { builtDeck: this.builtDecks.get(player.id)! } : {}),
             })),
         };
     }

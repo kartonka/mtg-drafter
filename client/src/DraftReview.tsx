@@ -1,19 +1,10 @@
-import { useMemo, useState } from 'react';
-import type { Card, DraftReviewView } from '../../shared/protocol';
-
-const manaValue = (card: Card) => card.land ? 'Lands' : card.cmc >= 7 ? '7+' : String(Math.max(0, Math.floor(card.cmc)));
-const columns = ['0', '1', '2', '3', '4', '5', '6', '7+', 'Lands'];
+import { useState } from 'react';
+import type { DraftReviewView } from '../../shared/protocol';
+import { DeckBuilder } from './DeckBuilder';
 
 export function DraftReview({ review, onClose }: { review: DraftReviewView; onClose: () => void }) {
     const [playerId, setPlayerId] = useState(review.players[0]?.id ?? '');
     const player = review.players.find((candidate) => candidate.id === playerId) ?? review.players[0];
-    const poolColumns = useMemo(() => {
-        if (!player) return [];
-        return columns.map((value) => ({
-            value,
-            cards: player.picks.filter((card) => manaValue(card) === value).sort((a, b) => a.name.localeCompare(b.name)),
-        })).filter((column) => column.cards.length > 0);
-    }, [player]);
 
     const download = () => {
         if (!player) return;
@@ -68,18 +59,16 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                     {player.log.length === 0 && <p className="muted">No pick log is available for this player.</p>}
                 </div>
 
-                <h3 className="pool-title">Final pool by mana value</h3>
-                <div className="review-pool-columns">
-                    {poolColumns.map(({ value, cards }) => (
-                        <section className="review-pool-column" key={value}>
-                            <h4>{value} <span className="muted">({cards.length})</span></h4>
-                            <div className="review-pool-stack">
-                                {cards.map((card) => <img key={card.id} src={card.image} alt={card.name} title={card.name} />)}
-                            </div>
-                        </section>
-                    ))}
-                    {poolColumns.length === 0 && <p className="muted">No drafted cards.</p>}
-                </div>
+                <h3 className="pool-title">Built deck</h3>
+                <DeckBuilder
+                    key={`${review.id}-${player.id}`}
+                    picks={player.picks}
+                    basics={review.basics ?? []}
+                    storageKey={`draft-review-${review.id}-${player.id}`}
+                    initialLayout={player.builtDeck ?? { columns: [], pool: [] }}
+                    persistLocal={false}
+                    done
+                />
             </>}
         </section>
     );
