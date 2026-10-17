@@ -11,7 +11,7 @@ export function CardPreview({ card, className, onMouseEnter, onMouseLeave }: {
     const backImage = backFaceImage(card);
     const help = mechanicHelp(card);
     return (
-        <div className={`${className}${backImage ? ' has-back-face' : ''}`} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+        <div className={`${className}${backImage ? ' has-back-face' : ''}${help.length ? ' has-mechanic-help' : ''}`} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             {help.length > 0 && (
                 <aside className="mechanic-help" aria-label={`Mechanic explanations for ${card.name}`}>
                     {help.map((item) => (
