@@ -33,7 +33,7 @@ export class Draft {
     round = 0;
 
     /** rounds[round][seat] is the pack that seat opens in that round. */
-    constructor(private readonly rounds: Card[][][], private readonly seats: number) {
+    constructor(private readonly rounds: Card[][][], private readonly seats: number, private readonly pickCount = 1) {
         this.queues = Array.from({ length: seats }, () => []);
         this.picks = Array.from({ length: seats }, () => []);
         this.logs = Array.from({ length: seats }, () => []);
@@ -56,23 +56,34 @@ export class Draft {
         return this.queues[seat][0] ?? null;
     }
 
-    pick(seat: number, cardId: string): boolean {
+    pick(seat: number, cardIds: string[], additionalCardId?: string): boolean {
         const pack = this.queues[seat][0];
         if (!pack) return false;
-        const index = pack.findIndex((c) => c.id === cardId);
-        if (index < 0) return false;
+        const required = Math.min(this.pickCount, pack.length);
+        if (cardIds.length !== required || new Set(cardIds).size !== cardIds.length || cardIds.some((id) => !pack.some((card) => card.id === id))) return false;
+        const librarianIndex = this.picks[seat].findIndex((card) => card.name.toLocaleLowerCase() === 'cogwork librarian');
+        if (additionalCardId && (librarianIndex < 0 || pack.length <= required || cardIds.includes(additionalCardId) || !pack.some((card) => card.id === additionalCardId))) return false;
 
         const packSnapshot = [...pack];
-        const [card] = pack.splice(index, 1);
+        const cards = cardIds.map((id) => pack.splice(pack.findIndex((candidate) => candidate.id === id), 1)[0]);
+        const additionalIndex = additionalCardId ? pack.findIndex((candidate) => candidate.id === additionalCardId) : -1;
+        const [additionalCard] = additionalIndex >= 0 ? pack.splice(additionalIndex, 1) : [];
         this.queues[seat].shift();
+        if (librarianIndex >= 0 && additionalCard) {
+            const [librarian] = this.picks[seat].splice(librarianIndex, 1);
+            pack.push(librarian);
+        }
         this.logs[seat].push({
             round: this.round + 1,
-            pick: this.picks[seat].length + 1,
+            pick: this.logs[seat].length + 1,
             direction: this.direction,
             pack: packSnapshot,
-            picked: card,
+            picked: cards[0],
+            ...(cards.length > 1 ? { alsoPicked: cards.slice(1) } : {}),
+            ...(additionalCard ? { additionalPicked: additionalCard } : {}),
         });
-        this.picks[seat].push(card);
+        this.picks[seat].push(...cards);
+        if (additionalCard) this.picks[seat].push(additionalCard);
         if (pack.length > 0) {
             this.queues[(seat + this.direction + this.seats) % this.seats].push(pack);
         }

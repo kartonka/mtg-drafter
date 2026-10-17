@@ -60,6 +60,10 @@ button {
 button:hover:not(:disabled) {
   border-color: var(--accent);
 }
+button.selected-mode {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

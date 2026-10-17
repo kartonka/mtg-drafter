@@ -39,7 +39,7 @@ export class Table {
     phase: Phase = 'lobby';
     draft: Draft | null = null;
     startedAt: string | null = null;
-    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, botStrategy: 'smart' };
+    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, pickCount: 1, botStrategy: 'smart' };
     lastActive = Date.now();
     private botCount = 0;
 
@@ -74,12 +74,13 @@ export class Table {
         if (p) p.ready = !!ready;
     }
 
-    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown, botStrategy: unknown) {
+    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown, pickCount: unknown, botStrategy: unknown) {
         this.requireHost(byId);
         this.requireLobby();
         this.settings = {
             packsPerPlayer: clamp(packsPerPlayer, 1, LIMITS.maxPacks),
             cardsPerPack: clamp(cardsPerPack, LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack),
+            pickCount: clamp(pickCount, 1, 2),
             botStrategy: botStrategy === 'random' ? 'random' : 'smart',
         };
     }
@@ -113,15 +114,17 @@ export class Table {
 
         this.players = shuffle(this.players);
         this.startedAt = new Date().toISOString();
-        this.draft = new Draft(makePacks(this.cube.cards, this.players.length, packsPerPlayer, cardsPerPack), this.players.length);
+        this.draft = new Draft(makePacks(this.cube.cards, this.players.length, packsPerPlayer, cardsPerPack), this.players.length, this.settings.pickCount);
         this.phase = 'drafting';
         this.advance();
     }
 
-    pick(playerId: string, cardId: string) {
+    pick(playerId: string, cardId: string, additionalCardId?: string) {
         if (this.phase !== 'drafting' || !this.draft) throw new GameError('No draft in progress.');
         const seat = this.players.findIndex((p) => p.id === playerId);
-        if (seat < 0 || !this.draft.pick(seat, String(cardId))) throw new GameError('That pick is not available.');
+        if (seat < 0 || !this.draft.pick(seat, String(cardId), additionalCardId === undefined ? undefined : String(additionalCardId))) {
+            throw new GameError('That pick is not available.');
+        }
         this.advance();
     }
 
@@ -154,7 +157,7 @@ export class Table {
                 ? {
                     round: Math.min(d.round + 1, d.totalRounds),
                     totalRounds: d.totalRounds,
-                    pickNumber: pack ? this.settings.cardsPerPack - pack.length + 1 : 0,
+                    pickNumber: pack ? d.logs[seat].length + 1 : 0,
                     direction: d.direction,
                     pack,
                 }
@@ -214,7 +217,17 @@ export class Table {
             this.players.forEach((p, seat) => {
                 const pack = p.isBot ? d.currentPack(seat) : null;
                 if (pack && !d.done) {
-                    d.pick(seat, botPick(pack, d.picks[seat], this.settings.botStrategy).id);
+                    const count = Math.min(this.settings.pickCount, pack.length);
+                    const selected: Card[] = [];
+                    for (let i = 0; i < count; i++) {
+                        const next = botPick(pack.filter((card) => !selected.some((chosen) => chosen.id === card.id)), [...d.picks[seat], ...selected], this.settings.botStrategy);
+                        selected.push(next);
+                    }
+                    const hasLibrarian = d.picks[seat].some((card) => card.name.toLocaleLowerCase() === 'cogwork librarian');
+                    const additional = hasLibrarian && pack.length > count
+                        ? botPick(pack.filter((card) => !selected.some((chosen) => chosen.id === card.id)), [...d.picks[seat], ...selected], this.settings.botStrategy)
+                        : undefined;
+                    d.pick(seat, selected.map((card) => card.id), additional?.id);
                     acted = true;
                 }
             });
