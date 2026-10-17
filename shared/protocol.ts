@@ -40,6 +40,29 @@ export interface DraftView {
     pack: Card[] | null;
 }
 
+/** One pick and the pack the player chose from, retained for draft review. */
+export interface DraftLogEntry {
+    round: number;
+    pick: number;
+    direction: 1 | -1;
+    pack: Card[];
+    picked: Card;
+}
+
+export interface DraftReviewPlayer {
+    id: string;
+    name: string;
+    isBot: boolean;
+    picks: Card[];
+    log: DraftLogEntry[];
+}
+
+export interface DraftReviewView {
+    id: string;
+    cubeName: string;
+    players: DraftReviewPlayer[];
+}
+
 export interface TableView {
     id: string;
     phase: Phase;
@@ -53,6 +76,7 @@ export interface TableView {
     players: PlayerView[];
     draft: DraftView | null;
     picks: Card[];
+    draftLog: DraftLogEntry[];
     /** Only filled for the host once the draft is done. */
     botPicks: { id: string; name: string; picks: Card[] }[];
 }
@@ -69,6 +93,7 @@ export type ClientMsg =
     | { t: 'create'; name: string; cube: { url?: string; text?: string } }
     | { t: 'join'; tableId: string; name: string }
     | { t: 'resume'; tableId: string; token: string }
+    | { t: 'review'; tableId: string }
     | { t: 'ready'; ready: boolean }
     | { t: 'addBot' }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
@@ -81,4 +106,5 @@ export type ClientMsg =
 export type ServerMsg =
     | { t: 'session'; tableId: string; token: string; playerId: string }
     | { t: 'state'; state: TableView }
+    | { t: 'review'; review: DraftReviewView }
     | { t: 'error'; message: string; code?: 'NO_TABLE' };

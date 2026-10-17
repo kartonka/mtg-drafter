@@ -38,3 +38,7 @@ Any free Node host works (e.g. Render free web service: build `npm install --inc
 ## Moxfield
 
 The server fetches the list from Moxfield's unofficial API. Moxfield sits behind Cloudflare and may reject server requests (HTTP 403). If so, use "Paste a card list instead" (Moxfield: Export, copy as text). Set `MOXFIELD_USER_AGENT` if Moxfield issues you an API user agent.
+
+## Draft reviews
+
+After a draft is complete, open **Review draft** or share `http://<host>:3001/#review-<TABLECODE>` to review picks for any player. Completed drafts remain available by table code for up to 12 hours after activity; drafts are still held in memory and are lost if the server restarts.

@@ -1,4 +1,4 @@
-import type { Card } from '../../shared/protocol';
+import type { Card, DraftLogEntry } from '../../shared/protocol';
 
 export function shuffle<T>(items: readonly T[]): T[] {
     const a = [...items];
@@ -29,12 +29,14 @@ export function makePacks(cube: readonly Card[], seats: number, packsPerPlayer: 
 export class Draft {
     readonly queues: Card[][][];
     readonly picks: Card[][];
+    readonly logs: DraftLogEntry[][];
     round = 0;
 
     /** rounds[round][seat] is the pack that seat opens in that round. */
     constructor(private readonly rounds: Card[][][], private readonly seats: number) {
         this.queues = Array.from({ length: seats }, () => []);
         this.picks = Array.from({ length: seats }, () => []);
+        this.logs = Array.from({ length: seats }, () => []);
         this.deal();
     }
 
@@ -60,8 +62,16 @@ export class Draft {
         const index = pack.findIndex((c) => c.id === cardId);
         if (index < 0) return false;
 
+        const packSnapshot = [...pack];
         const [card] = pack.splice(index, 1);
         this.queues[seat].shift();
+        this.logs[seat].push({
+            round: this.round + 1,
+            pick: this.picks[seat].length + 1,
+            direction: this.direction,
+            pack: packSnapshot,
+            picked: card,
+        });
         this.picks[seat].push(card);
         if (pack.length > 0) {
             this.queues[(seat + this.direction + this.seats) % this.seats].push(pack);

@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import { LIMITS, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
+import { LIMITS, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
 import { botPick } from './bot';
 import type { Cube } from './cube';
 import { Draft, makePacks, shuffle } from './draft';
@@ -158,10 +158,27 @@ export class Table {
                 }
                 : null,
             picks: d && seat >= 0 ? d.picks[seat] : [],
+            draftLog: d && seat >= 0 ? d.logs[seat] : [],
             botPicks:
                 d && this.phase === 'done' && playerId === this.hostId
                     ? this.players.flatMap((p, i) => (p.isBot ? [{ id: p.id, name: p.name, picks: d.picks[i] }] : []))
                     : [],
+        };
+    }
+
+    reviewView(): DraftReviewView {
+        const d = this.draft;
+        if (!d || !d.done) throw new GameError('This draft is not finished yet.');
+        return {
+            id: this.id,
+            cubeName: this.cube.name,
+            players: this.players.map((player, seat) => ({
+                id: player.id,
+                name: player.name,
+                isBot: player.isBot,
+                picks: d.picks[seat],
+                log: d.logs[seat],
+            })),
         };
     }
 

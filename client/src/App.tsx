@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { BotPicks } from './BotPicks';
 import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
+import { DraftReview } from './DraftReview';
 import { Lobby } from './Lobby';
-import { hashCode, useGame } from './useGame';
+import { hashCode, hashReviewCode, useGame } from './useGame';
 
 export function App() {
-    const { state, error, connected, busy, send } = useGame();
+    const { state, review, error, connected, busy, send, clearReview } = useGame();
     const [view, setView] = useState<'draft' | 'deck'>('draft');
     const deckKey = state && `mtg-drafter-deck-${state.id}-${state.you}`;
 
@@ -23,9 +24,10 @@ export function App() {
             </header>
             {error && <div className="error">{error}</div>}
             <main>
-                {!state && <Home busy={busy} send={send} />}
-                {state?.phase === 'lobby' && <Lobby state={state} send={send} />}
-                {state?.phase === 'drafting' && deckKey && (
+                {!state && !review && <Home busy={busy} send={send} />}
+                {review && <DraftReview review={review} onClose={clearReview} />}
+                {!review && state?.phase === 'lobby' && <Lobby state={state} send={send} />}
+                {!review && state?.phase === 'drafting' && deckKey && (
                     <>
                         <nav className="tabs">
                             <button className={view === 'draft' ? 'active' : ''} onClick={() => setView('draft')}>
@@ -42,8 +44,12 @@ export function App() {
                         )}
                     </>
                 )}
-                {state?.phase === 'done' && deckKey && (
+                {!review && state?.phase === 'done' && deckKey && (
                     <>
+                        <nav className="tabs">
+                            <button className={view === 'deck' ? 'active' : ''} onClick={() => setView('deck')}>Deck</button>
+                            <button onClick={() => send({ t: 'review', tableId: state.id })}>Review draft</button>
+                        </nav>
                         <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done />
                         {state.botPicks.length > 0 && <BotPicks bots={state.botPicks} />}
                     </>
@@ -59,6 +65,7 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
     const [text, setText] = useState('');
     const [pasteMode, setPasteMode] = useState(false);
     const [code, setCode] = useState(hashCode());
+    const [reviewCode, setReviewCode] = useState(hashReviewCode() || hashCode());
 
     const remember = () => localStorage.setItem('mtg-drafter-name', name.trim());
 
@@ -113,6 +120,17 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                         }}
                     >
                         Join
+                    </button>
+                </section>
+
+                <section className="panel">
+                    <h2>Review a draft</h2>
+                    <label className="field">
+                        Table code
+                        <input value={reviewCode} maxLength={8} onChange={(e) => setReviewCode(e.target.value.toUpperCase())} placeholder="ABCDE" />
+                    </label>
+                    <button className="primary" disabled={busy || !reviewCode.trim()} onClick={() => send({ t: 'review', tableId: reviewCode.trim() })}>
+                        {busy ? 'Loading draft…' : 'Open review'}
                     </button>
                 </section>
             </div>

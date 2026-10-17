@@ -44,7 +44,8 @@ function detach(ws: WebSocket) {
 }
 
 function dropIfAbandoned(table: Table) {
-    if (table.abandoned) tables.delete(table.id);
+    // Keep completed drafts available by table code for review until normal TTL cleanup.
+    if (table.abandoned && table.phase !== 'done') tables.delete(table.id);
 }
 
 async function handle(ws: WebSocket, msg: ClientMsg) {
@@ -84,6 +85,13 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             if (!table || !player) return send(ws, { t: 'error', message: 'Table not found.', code: 'NO_TABLE' });
             attach(ws, table, player.id);
             broadcast(table);
+            return;
+        }
+        case 'review': {
+            const table = tables.get(String(msg.tableId).toUpperCase());
+            if (!table) return send(ws, { t: 'error', message: 'No draft with that table code.' });
+            table.touch();
+            send(ws, { t: 'review', review: table.reviewView() });
             return;
         }
     }

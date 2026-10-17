@@ -404,3 +404,176 @@ select {
   width: 110px;
   border-radius: 4.5%;
 }
+
+.review-pack {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.review-card {
+  position: relative;
+}
+.review-card .card {
+  display: block;
+}
+.review-card .card.selected {
+  outline-color: #65d98a;
+}
+.picked-label {
+  display: block;
+  margin-top: 6px;
+  color: #65d98a;
+  text-align: center;
+  font-weight: 600;
+}
+.review-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.review-list {
+  columns: 2;
+  padding-left: 28px;
+}
+.review-list li {
+  break-inside: avoid;
+  padding: 2px 0;
+}
+.review-list button {
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.review-list button.active {
+  color: var(--accent);
+}
+
+@media (max-width: 700px) {
+  .review-controls {
+    flex-wrap: wrap;
+  }
+  .review-list {
+    columns: 1;
+  }
+}
+
+.review-title,
+.review-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.review-title {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.review-title h2,
+.draft-review-page h3 {
+  margin: 0 0 6px;
+}
+.review-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--panel);
+  border-radius: 8px;
+}
+.review-toolbar .field {
+  margin: 0;
+  min-width: 220px;
+}
+.pick-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 32px;
+}
+.pick-row {
+  min-width: 0;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pick-row-label {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.pick-row-label span {
+  color: var(--muted);
+}
+.pick-row-label .picked-name {
+  color: #65d98a;
+  font-weight: 600;
+}
+.pick-row-cards {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 3px 3px 10px;
+}
+.history-card {
+  flex: 0 0 130px;
+  border-radius: 4.5%;
+}
+.history-card img {
+  display: block;
+  width: 100%;
+  border-radius: 4.5%;
+}
+.history-card.picked {
+  outline: 4px solid #65d98a;
+  outline-offset: 2px;
+}
+.pool-title {
+  margin-top: 32px !important;
+}
+.review-pool-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 2px 24px;
+}
+.review-pool-column {
+  flex: 0 0 132px;
+  min-height: 180px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.review-pool-column h4 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 0 8px;
+  padding: 4px 0;
+  background: var(--panel);
+}
+.review-pool-stack img {
+  display: block;
+  width: 100%;
+  border-radius: 4.5%;
+}
+.review-pool-stack img + img {
+  margin-top: -112px;
+}
+
+@media (max-width: 700px) {
+  .review-title,
+  .review-toolbar {
+    align-items: flex-start;
+  }
+  .pick-row-label {
+    flex-wrap: wrap;
+  }
+  .history-card {
+    flex-basis: 112px;
+  }
+}
