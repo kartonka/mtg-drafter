@@ -4,7 +4,8 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
-import { CubeError, loadCube } from './cube';
+import { CubeError, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
+import { archiveDraftReview, getArchivedDraftReview, listArchivedDraftReviews } from './reviewArchive';
 import { GameError, Table, cleanName, makeTableCode } from './table';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -14,13 +15,25 @@ const TABLE_TTL_MS = 12 * 60 * 60 * 1000;
 const tables = new Map<string, Table>();
 const conns = new WeakMap<WebSocket, { tableId: string; playerId: string }>();
 const creating = new WeakSet<WebSocket>();
+const archivedInProcess = new Set<string>();
 
 const send = (ws: WebSocket, msg: ServerMsg) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 };
 
 function broadcast(table: Table) {
+    archiveCompletedDraft(table);
     for (const p of table.players) if (p.ws) send(p.ws, { t: 'state', state: table.view(p.id) });
+}
+
+function archiveCompletedDraft(table: Table) {
+    if (table.phase !== 'done' || archivedInProcess.has(table.id)) return;
+    try {
+        archiveDraftReview(table.reviewView());
+        archivedInProcess.add(table.id);
+    } catch (err) {
+        console.error('Could not archive completed draft:', err);
+    }
 }
 
 function attach(ws: WebSocket, table: Table, playerId: string) {
@@ -50,13 +63,14 @@ function dropIfAbandoned(table: Table) {
 
 async function handle(ws: WebSocket, msg: ClientMsg) {
     switch (msg.t) {
-        case 'create': {
+        case 'create':
+        case 'createSaved': {
             if (creating.has(ws)) return;
             if (tables.size >= MAX_TABLES) throw new GameError('The server is busy. Try again later.');
             const name = cleanName(msg.name);
             creating.add(ws);
             try {
-                const cube = await loadCube(msg.cube ?? {});
+                const cube = msg.t === 'createSaved' ? await loadSavedCube(msg.cubeName) : await loadCube(msg.cube ?? {});
                 if (ws.readyState !== ws.OPEN) return;
                 let id = makeTableCode();
                 while (tables.has(id)) id = makeTableCode();
@@ -89,9 +103,13 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         }
         case 'review': {
             const table = tables.get(String(msg.tableId).toUpperCase());
-            if (!table) return send(ws, { t: 'error', message: 'No draft with that table code.' });
-            table.touch();
-            send(ws, { t: 'review', review: table.reviewView() });
+            if (table) {
+                table.touch();
+                archiveCompletedDraft(table);
+            }
+            const review = table?.reviewView() ?? getArchivedDraftReview(String(msg.tableId));
+            if (!review) return send(ws, { t: 'error', message: 'No completed draft with that table code.' });
+            send(ws, { t: 'review', review });
             return;
         }
     }
@@ -118,13 +136,13 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             break;
         }
         case 'settings':
-            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack, msg.botStrategy);
+            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack, msg.pickCount, msg.botStrategy);
             break;
         case 'start':
             table.start(conn.playerId);
             break;
         case 'pick':
-            table.pick(conn.playerId, msg.cardId);
+            table.pick(conn.playerId, msg.cardIds, msg.additionalCardId);
             break;
         case 'leave':
             conns.delete(ws);
@@ -136,7 +154,24 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
 }
 
 const app = express();
+app.use(express.json({ limit: '1mb' }));
 app.get('/api/health', (_req, res) => res.json({ ok: true, tables: tables.size }));
+app.get('/api/cubes', (_req, res) => {
+    try {
+        res.json({ cubes: listSavedCubeLists() });
+    } catch (err) {
+        res.status(500).json({ message: err instanceof Error ? err.message : 'Could not load saved cube lists.' });
+    }
+});
+app.get('/api/reviews', (_req, res) => res.json({ drafts: listArchivedDraftReviews() }));
+app.post('/api/cubes', (req, res) => {
+    try {
+        res.json(saveCubeList(req.body?.name, req.body?.text));
+    } catch (err) {
+        const status = err instanceof CubeError ? 400 : 500;
+        res.status(status).json({ message: err instanceof Error ? err.message : 'Could not save cube list.' });
+    }
+});
 
 const clientDist = path.resolve(import.meta.dirname, '../../client/dist');
 if (existsSync(clientDist)) {

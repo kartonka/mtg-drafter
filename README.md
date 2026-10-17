@@ -37,7 +37,15 @@ Any free Node host works (e.g. Render free web service: build `npm install --inc
 
 ## Moxfield
 
-The server fetches the list from Moxfield's unofficial API. Moxfield sits behind Cloudflare and may reject server requests (HTTP 403). If so, use "Paste a card list instead" (Moxfield: Export, copy as text). Set `MOXFIELD_USER_AGENT` if Moxfield issues you an API user agent.
+For Moxfield cubes, use Moxfield's Export command and paste the card list into the app's **Upload new cube** tab. This avoids relying on Moxfield's unofficial API, which may reject server requests (HTTP 403).
+
+## Saved cube lists
+
+Paste a list, give it a name, and save it to the server's `server/data/cubes.json` file. Saving another list with the same name replaces it. The existing `default_cubes/imbur.txt` and `marci-cube.txt` files are available in the saved-list selector as `imbur` and `marci-cube`; the selector shows each list's last edit date.
+
+Completed draft logs are archived in `server/data/draft-reviews` and appear in the past-draft selector with their table code and exact UTC start timestamp. Both saved lists and archived reviews survive server restarts when the host preserves the server filesystem.
+
+The lobby host can set picks per turn to one (normal draft) or two (pick-two draft). Bots follow the same pick count.
 
 ## Draft reviews
 

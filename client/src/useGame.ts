@@ -29,6 +29,7 @@ export function useGame() {
     const [connected, setConnected] = useState(false);
     const [busy, setBusy] = useState(false);
     const wsRef = useRef<WebSocket | null>(null);
+    const pendingStartRef = useRef<Extract<ClientMsg, { t: 'create' | 'createSaved' | 'join' }> | null>(null);
 
     useEffect(() => {
         let disposed = false;
@@ -41,6 +42,11 @@ export function useGame() {
 
             ws.onopen = () => {
                 setConnected(true);
+                if (pendingStartRef.current) {
+                    ws.send(JSON.stringify(pendingStartRef.current satisfies ClientMsg));
+                    pendingStartRef.current = null;
+                    return;
+                }
                 const stored = readStored();
                 if (hashReviewCode()) {
                     ws.send(JSON.stringify({ t: 'review', tableId: hashReviewCode() } satisfies ClientMsg));
@@ -108,9 +114,17 @@ export function useGame() {
 
     const send = useCallback((msg: ClientMsg) => {
         const ws = wsRef.current;
-        if (ws?.readyState !== WebSocket.OPEN) return setError('Not connected to the server.');
+        if (ws?.readyState !== WebSocket.OPEN) {
+            if (msg.t === 'create' || msg.t === 'createSaved' || msg.t === 'join') {
+                pendingStartRef.current = msg;
+                setBusy(true);
+                setError(null);
+                return;
+            }
+            return setError('Not connected to the server.');
+        }
         setError(null);
-        if (msg.t === 'create' || msg.t === 'join') setBusy(true);
+        if (msg.t === 'create' || msg.t === 'createSaved' || msg.t === 'join') setBusy(true);
         if (msg.t === 'review') {
             setBusy(true);
             history.replaceState(null, '', `#review-${msg.tableId.toUpperCase()}`);

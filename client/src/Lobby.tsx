@@ -12,7 +12,7 @@ interface Props {
 export function Lobby({ state, send }: Props) {
     const isHost = state.you === state.hostId;
     const me = state.players.find((p) => p.id === state.you);
-    const { packsPerPlayer, cardsPerPack, botStrategy } = state.settings;
+    const { packsPerPlayer, cardsPerPack, pickCount, botStrategy } = state.settings;
     const needed = state.players.length * packsPerPlayer * cardsPerPack;
     const tooFew = needed > state.cube.size;
     const allReady = state.players.every((p) => p.ready);
@@ -28,7 +28,14 @@ export function Lobby({ state, send }: Props) {
         <div className="columns">
             <section className="panel">
                 <h2>Table {state.id}</h2>
-                <button onClick={copyLink}>{copied ? 'Copied!' : 'Copy invite link'}</button>
+                <div className="row">
+                    <button onClick={copyLink}>{copied ? 'Copied!' : 'Copy invite link'}</button>
+                    {isHost && (
+                        <button onClick={() => send({ t: 'addBot' })} disabled={state.players.length >= LIMITS.maxPlayers}>
+                            Add bot
+                        </button>
+                    )}
+                </div>
                 <p className="muted">
                     {state.cube.name} · {state.cube.size} cards
                 </p>
@@ -58,11 +65,6 @@ export function Lobby({ state, send }: Props) {
 
                 <div className="row">
                     <button onClick={() => send({ t: 'ready', ready: !me?.ready })}>{me?.ready ? 'Not ready' : 'Ready'}</button>
-                    {isHost && (
-                        <button onClick={() => send({ t: 'addBot' })} disabled={state.players.length >= LIMITS.maxPlayers}>
-                            Add bot
-                        </button>
-                    )}
                 </div>
             </section>
 
@@ -73,7 +75,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={packsPerPlayer}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack, botStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack, pickCount, botStrategy })}
                     >
                         {range(1, LIMITS.maxPacks).map((n) => (
                             <option key={n}>{n}</option>
@@ -85,7 +87,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={cardsPerPack}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value), botStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value), pickCount, botStrategy })}
                     >
                         {range(LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack).map((n) => (
                             <option key={n}>{n}</option>
@@ -93,11 +95,22 @@ export function Lobby({ state, send }: Props) {
                     </select>
                 </label>
                 <label className="field">
+                    Picks per turn
+                    <select
+                        disabled={!isHost}
+                        value={pickCount}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount: Number(e.target.value), botStrategy })}
+                    >
+                        <option value={1}>1 card (normal draft)</option>
+                        <option value={2}>2 cards (pick two)</option>
+                    </select>
+                </label>
+                <label className="field">
                     Bot strategy
                     <select
                         disabled={!isHost}
                         value={botStrategy}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, botStrategy: e.target.value as BotStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount, botStrategy: e.target.value as BotStrategy })}
                     >
                         <option value="smart">Smart (colors and card strength)</option>
                         <option value="random">Random</option>

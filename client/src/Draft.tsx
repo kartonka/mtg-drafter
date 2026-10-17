@@ -9,33 +9,67 @@ interface Props {
 
 export function Draft({ state, send }: Props) {
     const { draft } = state;
-    const [selected, setSelected] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [useLibrarian, setUseLibrarian] = useState(false);
     const [preview, setPreview] = useState<Card | null>(null);
     const [zoom, setZoom] = useState<Card | null>(null);
     const pack = draft?.pack ?? null;
-    const selectedId = pack?.some((c) => c.id === selected) ? selected : null;
-    const selectedCard = pack?.find((c) => c.id === selectedId) ?? null;
+    const selected = pack ? selectedIds.filter((id) => pack.some((card) => card.id === id)) : [];
+    const basePickCount = Math.min(state.settings.pickCount, pack?.length ?? 0);
+    const requiredPickCount = basePickCount + (useLibrarian ? 1 : 0);
+    const hasLibrarian = state.picks.some((card) => card.name.toLocaleLowerCase() === 'cogwork librarian');
+    const canUseLibrarian = hasLibrarian && (pack?.length ?? 0) > basePickCount;
+    const lastSelected = pack?.find((c) => c.id === selected[selected.length - 1]) ?? null;
 
-    const confirm = (id: string | null = selectedId) => {
-        if (!id) return;
-        send({ t: 'pick', cardId: id });
-        setSelected(null);
+    const confirm = () => {
+        if (selected.length !== requiredPickCount) return;
+        send({
+            t: 'pick',
+            cardIds: selected.slice(0, basePickCount),
+            ...(useLibrarian ? { additionalCardId: selected[basePickCount] } : {}),
+        });
+        setSelectedIds([]);
+        setUseLibrarian(false);
+    };
+
+    const selectCard = (id: string) => {
+        if (selected.includes(id)) return setSelectedIds(selected.filter((selectedId) => selectedId !== id));
+        const target = requiredPickCount;
+        setSelectedIds(selected.length < target ? [...selected, id] : [...selected.slice(0, target - 1), id]);
     };
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Enter' && selectedId) {
-                send({ t: 'pick', cardId: selectedId });
-                setSelected(null);
-            }
+            if (e.key === 'Enter' && selected.length === requiredPickCount) confirm();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [selectedId, send]);
+    }, [selected, requiredPickCount, confirm]);
 
     if (!draft) return null;
     const seat = state.players.findIndex((p) => p.id === state.you);
     const next = state.players[(seat + draft.direction + state.players.length) % state.players.length];
+
+    // Shown in the header on desktop and in the bottom bar on phones.
+    const controls = (extraClass: string) => (
+        <>
+            {canUseLibrarian && (
+                <button
+                    className={`${useLibrarian ? 'selected-mode' : ''} ${extraClass}`.trim()}
+                    onClick={() => {
+                        const enabled = !useLibrarian;
+                        setUseLibrarian(enabled);
+                        setSelectedIds((current) => (enabled ? current : current.slice(0, basePickCount)));
+                    }}
+                >
+                    {useLibrarian ? 'Cancel extra pick' : 'Use Cogwork Librarian'}
+                </button>
+            )}
+            <button className={`primary ${extraClass}`.trim()} disabled={selected.length !== requiredPickCount} onClick={confirm}>
+                {useLibrarian ? `Pick ${requiredPickCount} · return Librarian` : `Pick ${requiredPickCount}`}
+            </button>
+        </>
+    );
 
     return (
         <div className="draft">
@@ -43,14 +77,10 @@ export function Draft({ state, send }: Props) {
                 <div className="draft-header">
                     <strong>
                         Pack {draft.round} of {draft.totalRounds}
-                        {pack && ` · Pick ${draft.pickNumber} of ${state.settings.cardsPerPack}`}
+                        {pack && ` · Pick ${draft.pickNumber} · choose ${basePickCount}${basePickCount === 1 ? ' card' : ' cards'}`}
                     </strong>
                     <span className="muted">Passing {draft.direction === 1 ? 'left' : 'right'} to {next?.name}</span>
-                    {pack && (
-                        <button className="primary desktop-only" disabled={!selectedId} onClick={() => confirm()}>
-                            Pick card
-                        </button>
-                    )}
+                    {pack && controls('desktop-only')}
                 </div>
 
                 {pack ? (
@@ -62,9 +92,9 @@ export function Draft({ state, send }: Props) {
                                 alt={c.name}
                                 title={c.name}
                                 draggable={false}
-                                className={c.id === selectedId ? 'card selected' : 'card'}
-                                onClick={() => setSelected(c.id)}
-                                onDoubleClick={() => confirm(c.id)}
+                                className={selected.includes(c.id) ? 'card selected' : 'card'}
+                                onClick={() => selectCard(c.id)}
+                                onDoubleClick={() => { if (state.settings.pickCount === 1 && !useLibrarian) { setSelectedIds([c.id]); send({ t: 'pick', cardIds: [c.id] }); } }}
                             />
                         ))}
                     </div>
@@ -89,19 +119,20 @@ export function Draft({ state, send }: Props) {
 
             {pack && (
                 <div className="action-bar mobile-only">
-                    <span className="muted">{selectedCard ? selectedCard.name : 'Tap a card to select it'}</span>
-                    <button disabled={!selectedCard} onClick={() => setZoom(selectedCard)}>
+                    <span className="muted">
+                        {selected.length ? pack.filter((c) => selected.includes(c.id)).map((c) => c.name).join(', ') : 'Tap a card to select it'}
+                    </span>
+                    <button disabled={!lastSelected} onClick={() => setZoom(lastSelected)}>
                         Zoom
                     </button>
-                    <button className="primary" disabled={!selectedId} onClick={() => confirm()}>
-                        Pick card
-                    </button>
+                    {controls('')}
                 </div>
             )}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
 
             <aside className="pool">
                 <h2>Your picks ({state.picks.length})</h2>
+                {hasLibrarian && <span className="muted">Cogwork Librarian available: draft an extra card from a pack.</span>}
                 <ul>
                     {state.picks.map((c) => (
                         <li key={c.id} onMouseEnter={() => setPreview(c)} onMouseLeave={() => setPreview(null)}>

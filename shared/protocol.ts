@@ -16,6 +16,7 @@ export type BotStrategy = 'random' | 'smart';
 export interface DraftSettings {
     packsPerPlayer: number;
     cardsPerPack: number;
+    pickCount: number;
     botStrategy: BotStrategy;
 }
 
@@ -47,6 +48,10 @@ export interface DraftLogEntry {
     direction: 1 | -1;
     pack: Card[];
     picked: Card;
+    /** Other cards drafted in the same pick-two action. */
+    alsoPicked?: Card[];
+    /** Second card taken by using Cogwork Librarian for this pick. */
+    additionalPicked?: Card;
 }
 
 export interface DraftReviewPlayer {
@@ -60,6 +65,8 @@ export interface DraftReviewPlayer {
 export interface DraftReviewView {
     id: string;
     cubeName: string;
+    /** ISO 8601 UTC time when drafting began. */
+    startedAt: string;
     players: DraftReviewPlayer[];
 }
 
@@ -91,6 +98,7 @@ export const LIMITS = {
 
 export type ClientMsg =
     | { t: 'create'; name: string; cube: { url?: string; text?: string } }
+    | { t: 'createSaved'; name: string; cubeName: string }
     | { t: 'join'; tableId: string; name: string }
     | { t: 'resume'; tableId: string; token: string }
     | { t: 'review'; tableId: string }
@@ -98,9 +106,9 @@ export type ClientMsg =
     | { t: 'addBot' }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
     | { t: 'kick'; playerId: string }
-    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; botStrategy: BotStrategy }
+    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; pickCount: number; botStrategy: BotStrategy }
     | { t: 'start' }
-    | { t: 'pick'; cardId: string }
+    | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'leave' };
 
 export type ServerMsg =

@@ -31,7 +31,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
             <div className="review-title">
                 <div>
                     <h2>Draft review · {review.id}</h2>
-                    <span className="muted">{review.cubeName}</span>
+                    <span className="muted">{review.cubeName} · Started {review.startedAt}</span>
                 </div>
                 <button onClick={onClose}>Back</button>
             </div>
@@ -54,11 +54,11 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                             <div className="pick-row-label">
                                 <strong>Pick {entry.pick}</strong>
                                 <span>Pack {entry.round}</span>
-                                <span className="picked-name">{entry.picked.name}</span>
+                                <span className="picked-name">{[entry.picked, ...(entry.alsoPicked ?? []), ...(entry.additionalPicked ? [entry.additionalPicked] : [])].map((card) => card.name).join(' + ')}</span>
                             </div>
                             <div className="pick-row-cards">
                                 {entry.pack.map((card) => (
-                                    <div className={card.id === entry.picked.id ? 'history-card picked' : 'history-card'} key={card.id}>
+                                    <div className={card.id === entry.picked.id || entry.alsoPicked?.some((picked) => picked.id === card.id) || card.id === entry.additionalPicked?.id ? 'history-card picked' : 'history-card'} key={card.id}>
                                         <img src={card.image} alt={card.name} title={card.name} />
                                     </div>
                                 ))}
