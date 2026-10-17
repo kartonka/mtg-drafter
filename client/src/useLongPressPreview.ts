@@ -1,5 +1,6 @@
 import { useEffect, useRef, type MouseEvent, type TouchEvent } from 'react';
 import type { Card } from '../../shared/protocol';
+import { backFaceImage } from './cardFaces';
 
 export function useLongPressPreview(onPreview: (card: Card) => void) {
     const timer = useRef<number | null>(null);
@@ -13,7 +14,7 @@ export function useLongPressPreview(onPreview: (card: Card) => void) {
 
     const bind = (card: Card) => ({
         onTouchStart: (_event: TouchEvent<HTMLElement>) => {
-            if (!card.backImage) return;
+            if (!backFaceImage(card)) return;
             clear();
             timer.current = window.setTimeout(() => {
                 triggered.current = true;
@@ -25,7 +26,7 @@ export function useLongPressPreview(onPreview: (card: Card) => void) {
         onTouchCancel: clear,
         onTouchMove: clear,
         onContextMenu: (event: MouseEvent<HTMLElement>) => {
-            if (card.backImage) event.preventDefault();
+            if (backFaceImage(card)) event.preventDefault();
         },
     });
 

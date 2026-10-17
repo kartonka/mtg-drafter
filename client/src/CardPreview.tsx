@@ -1,4 +1,5 @@
 import type { Card } from '../../shared/protocol';
+import { backFaceImage } from './cardFaces';
 
 export function CardPreview({ card, className, onMouseEnter, onMouseLeave }: {
     card: Card;
@@ -6,10 +7,11 @@ export function CardPreview({ card, className, onMouseEnter, onMouseLeave }: {
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
 }) {
+    const backImage = backFaceImage(card);
     return (
-        <div className={`${className}${card.backImage ? ' has-back-face' : ''}`} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+        <div className={`${className}${backImage ? ' has-back-face' : ''}`} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             <img src={card.image} alt={`${card.name} (front)`} />
-            {card.backImage && <img src={card.backImage} alt={`${card.name} (back)`} />}
+            {backImage && <img src={backImage} alt={`${card.name} (back)`} />}
         </div>
     );
 }
