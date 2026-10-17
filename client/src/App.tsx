@@ -9,7 +9,17 @@ import { hashCode, useGame } from './useGame';
 export function App() {
     const { state, review, error, connected, busy, send, clearReview } = useGame();
     const [view, setView] = useState<'draft' | 'deck'>('draft');
+    const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+    const [useLibrarian, setUseLibrarian] = useState(false);
     const deckKey = state && `mtg-drafter-deck-${state.id}-${state.you}`;
+    const packKey = state?.phase === 'drafting'
+        ? `${state.id}:${state.you}:${state.draft?.pack?.map((card) => card.id).join(',') ?? ''}`
+        : '';
+
+    useEffect(() => {
+        setSelectedCardIds([]);
+        setUseLibrarian(false);
+    }, [packKey]);
 
     return (
         <div className="app">
@@ -38,7 +48,14 @@ export function App() {
                             </button>
                         </nav>
                         {view === 'draft' ? (
-                            <Draft state={state} send={send} />
+                            <Draft
+                                state={state}
+                                send={send}
+                                selectedIds={selectedCardIds}
+                                setSelectedIds={setSelectedCardIds}
+                                useLibrarian={useLibrarian}
+                                setUseLibrarian={setUseLibrarian}
+                            />
                         ) : (
                             <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done={false} />
                         )}

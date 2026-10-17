@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Card, ClientMsg, TableView } from '../../shared/protocol';
 import { ZoomOverlay } from './ZoomOverlay';
 
 interface Props {
     state: TableView;
     send: (msg: ClientMsg) => void;
+    selectedIds: string[];
+    setSelectedIds: Dispatch<SetStateAction<string[]>>;
+    useLibrarian: boolean;
+    setUseLibrarian: Dispatch<SetStateAction<boolean>>;
 }
 
-export function Draft({ state, send }: Props) {
+export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, setUseLibrarian }: Props) {
     const { draft } = state;
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [useLibrarian, setUseLibrarian] = useState(false);
     const [preview, setPreview] = useState<Card | null>(null);
     const [zoom, setZoom] = useState<Card | null>(null);
     const [now, setNow] = useState(Date.now());
@@ -47,11 +49,6 @@ export function Draft({ state, send }: Props) {
         const interval = window.setInterval(() => setNow(Date.now()), 250);
         return () => window.clearInterval(interval);
     }, [draft?.pickDeadline, draft?.round, draft?.pickNumber]);
-
-    useEffect(() => {
-        setSelectedIds([]);
-        setUseLibrarian(false);
-    }, [packKey]);
 
     useEffect(() => {
         if (!pack) return;
@@ -117,7 +114,6 @@ export function Draft({ state, send }: Props) {
                                 draggable={false}
                                 className={selected.includes(c.id) ? 'card selected' : 'card'}
                                 onClick={() => selectCard(c.id)}
-                                onDoubleClick={() => { if (state.settings.pickCount === 1 && !useLibrarian) { setSelectedIds([c.id]); send({ t: 'pick', cardIds: [c.id] }); } }}
                             />
                         ))}
                     </div>
