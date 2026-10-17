@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Card, ClientMsg, TableView } from '../../shared/protocol';
+import { ZoomOverlay } from './ZoomOverlay';
 
 interface Props {
     state: TableView;
@@ -10,8 +11,10 @@ export function Draft({ state, send }: Props) {
     const { draft } = state;
     const [selected, setSelected] = useState<string | null>(null);
     const [preview, setPreview] = useState<Card | null>(null);
+    const [zoom, setZoom] = useState<Card | null>(null);
     const pack = draft?.pack ?? null;
     const selectedId = pack?.some((c) => c.id === selected) ? selected : null;
+    const selectedCard = pack?.find((c) => c.id === selectedId) ?? null;
 
     const confirm = (id: string | null = selectedId) => {
         if (!id) return;
@@ -44,7 +47,7 @@ export function Draft({ state, send }: Props) {
                     </strong>
                     <span className="muted">Passing {draft.direction === 1 ? 'left' : 'right'} to {next?.name}</span>
                     {pack && (
-                        <button className="primary" disabled={!selectedId} onClick={() => confirm()}>
+                        <button className="primary desktop-only" disabled={!selectedId} onClick={() => confirm()}>
                             Pick card
                         </button>
                     )}
@@ -58,6 +61,7 @@ export function Draft({ state, send }: Props) {
                                 src={c.image}
                                 alt={c.name}
                                 title={c.name}
+                                draggable={false}
                                 className={c.id === selectedId ? 'card selected' : 'card'}
                                 onClick={() => setSelected(c.id)}
                                 onDoubleClick={() => confirm(c.id)}
@@ -82,6 +86,19 @@ export function Draft({ state, send }: Props) {
                     ))}
                 </ul>
             </section>
+
+            {pack && (
+                <div className="action-bar mobile-only">
+                    <span className="muted">{selectedCard ? selectedCard.name : 'Tap a card to select it'}</span>
+                    <button disabled={!selectedCard} onClick={() => setZoom(selectedCard)}>
+                        Zoom
+                    </button>
+                    <button className="primary" disabled={!selectedId} onClick={() => confirm()}>
+                        Pick card
+                    </button>
+                </div>
+            )}
+            {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
 
             <aside className="pool">
                 <h2>Your picks ({state.picks.length})</h2>

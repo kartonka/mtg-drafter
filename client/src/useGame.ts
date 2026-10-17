@@ -75,14 +75,32 @@ export function useGame() {
             };
 
             ws.onclose = () => {
+                if (wsRef.current !== ws) return;
                 setConnected(false);
                 if (!disposed) retry = window.setTimeout(connect, 1500);
             };
         };
 
+        // Phones drop sockets while locked or backgrounded; reconnect as soon as the page is back.
+        let hiddenAt = 0;
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenAt = Date.now();
+                return;
+            }
+            const old = wsRef.current;
+            const dead = !old || old.readyState === WebSocket.CLOSED || old.readyState === WebSocket.CLOSING;
+            if (!dead && Date.now() - hiddenAt < 15000) return;
+            window.clearTimeout(retry);
+            connect();
+            old?.close();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+
         connect();
         return () => {
             disposed = true;
+            document.removeEventListener('visibilitychange', onVisibility);
             window.clearTimeout(retry);
             wsRef.current?.close();
         };

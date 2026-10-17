@@ -2,6 +2,8 @@ import { useMemo, useState, type DragEvent } from 'react';
 import type { Card } from '../../shared/protocol';
 import { copyText } from './clipboard';
 import { exportProxyPdf } from './proxyPdf';
+import { useCoarsePointer } from './useCoarsePointer';
+import { ZoomOverlay } from './ZoomOverlay';
 
 type GroupMode = 'cmc' | 'color';
 
@@ -69,6 +71,9 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
     const [exporting, setExporting] = useState(false);
     const [dragId, setDragId] = useState<string | null>(null);
     const [over, setOver] = useState<string | null>(null);
+    const touch = useCoarsePointer();
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [zoom, setZoom] = useState<Card | null>(null);
 
     const cardOf = useMemo(() => {
         const picked = new Map(picks.map((c) => [c.id, c]));
@@ -113,6 +118,7 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
 
     const clickCard = (id: string) => {
         setPreview(null);
+        if (touch) return setSelectedId(selectedId === id ? null : id);
         if (layout.pool.includes(id)) {
             const columns = layout.columns.map((col) => [...col]);
             autoPlace(columns, id, cardOf);
@@ -120,6 +126,24 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
         } else {
             moveTo(id, { kind: 'pool' });
         }
+    };
+
+    // Touch screens can't drag reliably, so a selected card gets move buttons instead.
+    const selected = selectedId && cardOf(selectedId) ? selectedId : null;
+    const selectedColumn = selected ? layout.columns.findIndex((col) => col.includes(selected)) : -1;
+    const lastColumn = layout.columns.length - 1;
+    const canSplit = selectedColumn >= 0 && layout.columns[selectedColumn].length > 1;
+    const moveSelected = (direction: -1 | 1) => {
+        if (!selected) return;
+        const target = selectedColumn + direction;
+        if (target >= 0 && target <= lastColumn) moveTo(selected, { kind: 'column', index: target });
+        else if (canSplit) moveTo(selected, { kind: 'gap', index: direction < 0 ? 0 : layout.columns.length });
+    };
+    const selectedToDeck = () => {
+        if (!selected) return;
+        const columns = layout.columns.map((col) => [...col]);
+        autoPlace(columns, selected, cardOf);
+        commit({ columns, pool: layout.pool.filter((x) => x !== selected) });
     };
 
     const arrange = (mode: GroupMode) =>
@@ -156,19 +180,22 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
         }
     };
 
-    const dragProps = (id: string) => ({
-        draggable: true,
-        onDragStart: (e: DragEvent) => {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', id);
-            setDragId(id);
-            setPreview(null);
-        },
-        onDragEnd: () => {
-            setDragId(null);
-            setOver(null);
-        },
-    });
+    const dragProps = (id: string) =>
+        touch
+            ? { draggable: false }
+            : {
+                draggable: true,
+                onDragStart: (e: DragEvent) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', id);
+                    setDragId(id);
+                    setPreview(null);
+                },
+                onDragEnd: () => {
+                    setDragId(null);
+                    setOver(null);
+                },
+            };
 
     const zone = (key: string, target: DropTarget) => ({
         onDragOver: (e: DragEvent) => {
@@ -192,7 +219,11 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
         <div className="deckbuilder">
             <div className="draft-header">
                 <h2>{done ? 'Draft complete' : 'Deck builder'}</h2>
-                <span className="muted">Drag cards between columns, into a gap to start a new column, or click a card to move it in or out of the deck.</span>
+                <span className="muted">
+                    {touch
+                        ? 'Tap a card to select it, then use the buttons at the bottom to move it.'
+                        : 'Drag cards between columns, into a gap to start a new column, or click a card to move it in or out of the deck.'}
+                </span>
             </div>
 
             <div className="section-header">
@@ -247,7 +278,7 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
                                         key={id}
                                         src={c.image}
                                         alt={c.name}
-                                        className="stack-card"
+                                        className={id === selected ? 'stack-card selected' : 'stack-card'}
                                         onClick={() => clickCard(id)}
                                         onMouseEnter={() => setPreview(c)}
                                         onMouseLeave={() => setPreview(null)}
@@ -274,7 +305,7 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
                         key={c.id}
                         src={c.image}
                         alt={c.name}
-                        className="pool-card"
+                        className={c.id === selected ? 'pool-card selected' : 'pool-card'}
                         onClick={() => clickCard(c.id)}
                         onMouseEnter={() => setPreview(c)}
                         onMouseLeave={() => setPreview(null)}
@@ -284,6 +315,38 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
             </div>
 
             {preview && <img className="deck-preview" src={preview.image} alt={preview.name} />}
+
+            {touch && selected && (
+                <>
+                    <div className="bar-spacer" />
+                    <div className="action-bar">
+                        <span className="muted">{cardOf(selected)!.name}</span>
+                        {selectedColumn >= 0 ? (
+                            <>
+                                <button onClick={() => moveSelected(-1)} disabled={selectedColumn === 0 && !canSplit}>
+                                    ◀ Left
+                                </button>
+                                <button onClick={() => moveSelected(1)} disabled={selectedColumn === lastColumn && !canSplit}>
+                                    Right ▶
+                                </button>
+                                <button onClick={() => moveTo(selected, { kind: 'gap', index: selectedColumn + 1 })} disabled={!canSplit}>
+                                    New column
+                                </button>
+                                <button onClick={() => moveTo(selected, { kind: 'pool' })}>{isBasic(selected) ? 'Remove' : 'To pool'}</button>
+                            </>
+                        ) : (
+                            <button className="primary" onClick={selectedToDeck}>
+                                To deck
+                            </button>
+                        )}
+                        <button onClick={() => setZoom(cardOf(selected)!)}>Zoom</button>
+                        <button className="link" onClick={() => setSelectedId(null)}>
+                            Done
+                        </button>
+                    </div>
+                </>
+            )}
+            {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
         </div>
     );
 }
