@@ -120,6 +120,14 @@ select {
   align-items: start;
 }
 
+.cube-setup {
+  margin-bottom: 20px;
+}
+
+.cube-tabs {
+  margin-bottom: 4px;
+}
+
 .home {
   max-width: 900px;
   margin: 0 auto;

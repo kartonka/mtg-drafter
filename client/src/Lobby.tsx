@@ -28,7 +28,14 @@ export function Lobby({ state, send }: Props) {
         <div className="columns">
             <section className="panel">
                 <h2>Table {state.id}</h2>
-                <button onClick={copyLink}>{copied ? 'Copied!' : 'Copy invite link'}</button>
+                <div className="row">
+                    <button onClick={copyLink}>{copied ? 'Copied!' : 'Copy invite link'}</button>
+                    {isHost && (
+                        <button onClick={() => send({ t: 'addBot' })} disabled={state.players.length >= LIMITS.maxPlayers}>
+                            Add bot
+                        </button>
+                    )}
+                </div>
                 <p className="muted">
                     {state.cube.name} · {state.cube.size} cards
                 </p>
@@ -58,11 +65,6 @@ export function Lobby({ state, send }: Props) {
 
                 <div className="row">
                     <button onClick={() => send({ t: 'ready', ready: !me?.ready })}>{me?.ready ? 'Not ready' : 'Ready'}</button>
-                    {isHost && (
-                        <button onClick={() => send({ t: 'addBot' })} disabled={state.players.length >= LIMITS.maxPlayers}>
-                            Add bot
-                        </button>
-                    )}
                 </div>
             </section>
 

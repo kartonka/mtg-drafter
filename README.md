@@ -37,7 +37,7 @@ Any free Node host works (e.g. Render free web service: build `npm install --inc
 
 ## Moxfield
 
-The server can fetch a cube from Moxfield's unofficial API, but Moxfield may reject requests (HTTP 403). If loading fails, use Moxfield's Export command, then paste and save the list in the app. Set `MOXFIELD_USER_AGENT` if Moxfield issues you an API user agent.
+For Moxfield cubes, use Moxfield's Export command and paste the card list into the app's **Upload new cube** tab. This avoids relying on Moxfield's unofficial API, which may reject server requests (HTTP 403).
 
 ## Saved cube lists
 

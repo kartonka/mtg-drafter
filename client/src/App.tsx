@@ -61,8 +61,8 @@ export function App() {
 
 function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>['send'] }) {
     const [name, setName] = useState(() => localStorage.getItem('mtg-drafter-name') ?? '');
-    const [url, setUrl] = useState('');
     const [text, setText] = useState('');
+    const [cubeTab, setCubeTab] = useState<'saved' | 'upload'>('saved');
     const [code, setCode] = useState(hashCode());
     const [savedCubes, setSavedCubes] = useState<{ name: string; updatedAt: string }[]>([]);
     const [pastDrafts, setPastDrafts] = useState<{ tableId: string; cubeName: string; startedAt: string }[]>([]);
@@ -79,6 +79,7 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
         if (!response.ok) throw new Error(result.message ?? 'Could not load saved cube lists.');
         const cubes: { name: string; updatedAt: string }[] = result.cubes ?? [];
         setSavedCubes(cubes);
+        if (cubes.length === 0) setCubeTab('upload');
         setSelectedCube((current) => selectName ?? (cubes.some((cube) => cube.name === current) ? current : cubes[0]?.name ?? ''));
     };
 
@@ -109,6 +110,8 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
             if (!response.ok) throw new Error(result.message ?? 'Could not save the cube list.');
             await refreshSavedCubes(result.name);
             setLibraryMessage(result.overwritten ? `Updated “${result.name}”.` : `Saved “${result.name}”.`);
+            remember();
+            send({ t: 'createSaved', name, cubeName: result.name });
         } catch (err) {
             setLibraryMessage(err instanceof Error ? err.message : 'Could not save the cube list.');
         } finally {
@@ -123,13 +126,17 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                 <input value={name} maxLength={24} onChange={(e) => setName(e.target.value)} placeholder="Name" />
             </label>
 
-            <div className="columns">
-                <section className="panel">
-                    <h2>Saved cube lists</h2>
+            <section className="panel cube-setup">
+                <h2>Create a table</h2>
+                <nav className="tabs cube-tabs" aria-label="Cube list options">
+                    <button className={cubeTab === 'saved' ? 'active' : ''} onClick={() => setCubeTab('saved')}>Saved cube</button>
+                    <button className={cubeTab === 'upload' ? 'active' : ''} onClick={() => setCubeTab('upload')}>Upload new cube</button>
+                </nav>
+                {cubeTab === 'saved' ? <>
                     <label className="field">
                         Cube list
-                        <select value={selectedCube} onChange={(e) => setSelectedCube(e.target.value)} disabled={savedCubes.length === 0}>
-                            {savedCubes.length === 0 && <option value="">No saved lists</option>}
+                        <select value={selectedCube} onChange={(e) => setSelectedCube(e.target.value)}>
+                            {savedCubes.length === 0 && <option value="">No lists</option>}
                             {savedCubes.map((cube) => <option key={cube.name} value={cube.name}>{cube.name} ({new Date(cube.updatedAt).toLocaleDateString()})</option>)}
                         </select>
                     </label>
@@ -137,13 +144,10 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                         remember();
                         send({ t: 'createSaved', name, cubeName: selectedCube });
                     }}>
-                        {busy ? 'Loading cube…' : 'Create table from saved list'}
+                        {busy ? 'Loading cube…' : 'Create table'}
                     </button>
                     {libraryMessage && <span className="muted">{libraryMessage}</span>}
-                </section>
-
-                <section className="panel">
-                    <h2>Upload or replace a cube list</h2>
+                </> : <>
                     <label className="field">
                         Cube list name
                         <input value={cubeName} maxLength={80} onChange={(e) => setCubeName(e.target.value)} placeholder="My cube" />
@@ -153,26 +157,13 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                         <textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'1 Lightning Bolt\n1 Counterspell'} />
                     </label>
                     <span className="muted">Saving a name that already exists replaces that list. Moxfield exports can be pasted here.</span>
-                    <button className="primary" disabled={saving || !cubeName.trim() || !text.trim()} onClick={saveList}>
-                        {saving ? 'Saving…' : savedCubes.some((cube) => cube.name.toLocaleLowerCase() === cubeName.trim().toLocaleLowerCase()) ? 'Replace saved list' : 'Save cube list'}
+                    <button className="primary" disabled={saving || busy || !name.trim() || !cubeName.trim() || !text.trim()} onClick={saveList}>
+                        {saving ? 'Saving…' : 'Save cube list and create table'}
                     </button>
-                </section>
+                </>}
+            </section>
 
-                <section className="panel">
-                    <h2>Use a Moxfield link</h2>
-                    <label className="field">
-                        Moxfield cube link
-                        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://moxfield.com/cubes/…" />
-                    </label>
-                    <span className="muted">Moxfield may block server requests. Paste its exported card list above if loading fails.</span>
-                    <button className="primary" disabled={busy || !name.trim() || !url.trim()} onClick={() => {
-                        remember();
-                        send({ t: 'create', name, cube: { url } });
-                    }}>
-                        {busy ? 'Loading cube…' : 'Create table'}
-                    </button>
-                </section>
-
+            <div className="columns">
                 <section className="panel">
                     <h2>Join a table</h2>
                     <label className="field">
