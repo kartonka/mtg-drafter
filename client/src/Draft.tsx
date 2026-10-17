@@ -8,51 +8,40 @@ interface Props {
 
 export function Draft({ state, send }: Props) {
     const { draft } = state;
-    const [selected, setSelected] = useState<string | null>(null);
-    const [additionalSelected, setAdditionalSelected] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [useLibrarian, setUseLibrarian] = useState(false);
     const [preview, setPreview] = useState<Card | null>(null);
     const pack = draft?.pack ?? null;
-    const selectedId = pack?.some((c) => c.id === selected) ? selected : null;
-    const additionalSelectedId = pack?.some((c) => c.id === additionalSelected && c.id !== selectedId) ? additionalSelected : null;
+    const selected = pack ? selectedIds.filter((id) => pack.some((card) => card.id === id)) : [];
+    const basePickCount = Math.min(state.settings.pickCount, pack?.length ?? 0);
+    const requiredPickCount = basePickCount + (useLibrarian ? 1 : 0);
     const hasLibrarian = state.picks.some((card) => card.name.toLocaleLowerCase() === 'cogwork librarian');
+    const canUseLibrarian = hasLibrarian && (pack?.length ?? 0) > basePickCount;
 
-    const confirm = (id: string | null = selectedId) => {
-        if (!id) return;
-        if (useLibrarian && !additionalSelectedId) return;
-        send({ t: 'pick', cardId: id, ...(useLibrarian ? { additionalCardId: additionalSelectedId! } : {}) });
-        setSelected(null);
-        setAdditionalSelected(null);
+    const confirm = () => {
+        if (selected.length !== requiredPickCount) return;
+        send({
+            t: 'pick',
+            cardIds: selected.slice(0, basePickCount),
+            ...(useLibrarian ? { additionalCardId: selected[basePickCount] } : {}),
+        });
+        setSelectedIds([]);
         setUseLibrarian(false);
     };
 
     const selectCard = (id: string) => {
-        if (!useLibrarian) {
-            setSelected(id);
-        } else if (id === selected) {
-            setSelected(null);
-            setAdditionalSelected(null);
-        } else if (id === additionalSelected) {
-            setAdditionalSelected(null);
-        } else if (!selected) {
-            setSelected(id);
-        } else {
-            setAdditionalSelected(id);
-        }
+        if (selected.includes(id)) return setSelectedIds(selected.filter((selectedId) => selectedId !== id));
+        const target = requiredPickCount;
+        setSelectedIds(selected.length < target ? [...selected, id] : [...selected.slice(0, target - 1), id]);
     };
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Enter' && selectedId && (!useLibrarian || additionalSelectedId)) {
-                send({ t: 'pick', cardId: selectedId, ...(useLibrarian ? { additionalCardId: additionalSelectedId! } : {}) });
-                setSelected(null);
-                setAdditionalSelected(null);
-                setUseLibrarian(false);
-            }
+            if (e.key === 'Enter' && selected.length === requiredPickCount) confirm();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [selectedId, additionalSelectedId, useLibrarian, send]);
+    }, [selected, requiredPickCount, confirm]);
 
     if (!draft) return null;
     const seat = state.players.findIndex((p) => p.id === state.you);
@@ -64,22 +53,22 @@ export function Draft({ state, send }: Props) {
                 <div className="draft-header">
                     <strong>
                         Pack {draft.round} of {draft.totalRounds}
-                        {pack && ` · Pick ${draft.pickNumber} of ${state.settings.cardsPerPack}`}
+                        {pack && ` · Pick ${draft.pickNumber} · choose ${basePickCount}${basePickCount === 1 ? ' card' : ' cards'}`}
                     </strong>
                     <span className="muted">Passing {draft.direction === 1 ? 'left' : 'right'} to {next?.name}</span>
                     {pack && (
                         <>
-                            {hasLibrarian && pack.length > 1 && (
+                            {canUseLibrarian && (
                                 <button className={useLibrarian ? 'selected-mode' : ''} onClick={() => {
-                                    setUseLibrarian((active) => !active);
-                                    setSelected(null);
-                                    setAdditionalSelected(null);
+                                    const next = !useLibrarian;
+                                    setUseLibrarian(next);
+                                    setSelectedIds((current) => next ? current : current.slice(0, basePickCount));
                                 }}>
                                     {useLibrarian ? 'Cancel extra pick' : 'Use Cogwork Librarian'}
                                 </button>
                             )}
-                            <button className="primary" disabled={!selectedId || (useLibrarian && !additionalSelectedId)} onClick={() => confirm()}>
-                                {useLibrarian ? 'Pick 2 · return Librarian' : 'Pick card'}
+                            <button className="primary" disabled={selected.length !== requiredPickCount} onClick={confirm}>
+                                {useLibrarian ? `Pick ${requiredPickCount} · return Librarian` : `Pick ${requiredPickCount}`}
                             </button>
                         </>
                     )}
@@ -93,9 +82,9 @@ export function Draft({ state, send }: Props) {
                                 src={c.image}
                                 alt={c.name}
                                 title={c.name}
-                                className={c.id === selectedId || c.id === additionalSelectedId ? 'card selected' : 'card'}
+                                className={selected.includes(c.id) ? 'card selected' : 'card'}
                                 onClick={() => selectCard(c.id)}
-                                onDoubleClick={() => { if (!useLibrarian) confirm(c.id); }}
+                                onDoubleClick={() => { if (state.settings.pickCount === 1 && !useLibrarian) { setSelectedIds([c.id]); send({ t: 'pick', cardIds: [c.id] }); } }}
                             />
                         ))}
                     </div>

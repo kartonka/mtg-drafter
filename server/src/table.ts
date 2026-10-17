@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import { LIMITS, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
+import { LIMITS, type Card, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
 import { botPick } from './bot';
 import type { Cube } from './cube';
 import { Draft, makePacks, shuffle } from './draft';
@@ -119,10 +119,10 @@ export class Table {
         this.advance();
     }
 
-    pick(playerId: string, cardId: string, additionalCardId?: string) {
+    pick(playerId: string, cardIds: string[], additionalCardId?: string) {
         if (this.phase !== 'drafting' || !this.draft) throw new GameError('No draft in progress.');
         const seat = this.players.findIndex((p) => p.id === playerId);
-        if (seat < 0 || !this.draft.pick(seat, String(cardId), additionalCardId === undefined ? undefined : String(additionalCardId))) {
+        if (seat < 0 || !this.draft.pick(seat, cardIds.map(String), additionalCardId === undefined ? undefined : String(additionalCardId))) {
             throw new GameError('That pick is not available.');
         }
         this.advance();
@@ -157,7 +157,7 @@ export class Table {
                 ? {
                     round: Math.min(d.round + 1, d.totalRounds),
                     totalRounds: d.totalRounds,
-                    pickNumber: pack ? d.logs[seat].length + 1 : 0,
+                    pickNumber: pack ? d.logs[seat].filter((entry) => entry.round === d.round + 1).length + 1 : 0,
                     direction: d.direction,
                     pack,
                 }

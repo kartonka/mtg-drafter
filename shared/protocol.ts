@@ -108,7 +108,7 @@ export type ClientMsg =
     | { t: 'kick'; playerId: string }
     | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; pickCount: number; botStrategy: BotStrategy }
     | { t: 'start' }
-    | { t: 'pick'; cardId: string; additionalCardId?: string }
+    | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'leave' };
 
 export type ServerMsg =

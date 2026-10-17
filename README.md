@@ -45,6 +45,8 @@ Paste a list, give it a name, and save it to the server's `server/data/cubes.jso
 
 Completed draft logs are archived in `server/data/draft-reviews` and appear in the past-draft selector with their table code and exact UTC start timestamp. Both saved lists and archived reviews survive server restarts when the host preserves the server filesystem.
 
+The lobby host can set picks per turn to one (normal draft) or two (pick-two draft). Bots follow the same pick count.
+
 ## Draft reviews
 
 After a draft is complete, open **Review draft** or share `http://<host>:3001/#review-<TABLECODE>` to review picks for any player. Completed drafts remain available by table code for up to 12 hours after activity; drafts are still held in memory and are lost if the server restarts.
