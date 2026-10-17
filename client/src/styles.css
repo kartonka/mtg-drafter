@@ -47,6 +47,51 @@ body {
 .dot.on {
   background: #4caf50;
 }
+.playlist-button {
+  padding: 7px 10px;
+  color: #171717;
+  font-weight: 700;
+  white-space: nowrap;
+  border-color: #b8b8b8;
+  background: linear-gradient(to bottom, #ce2939 0 33.33%, #fff 33.33% 66.66%, #477050 66.66% 100%);
+}
+.playlist-button.active {
+  border-color: #fff;
+}
+.playlist-player {
+  position: fixed;
+  top: 64px;
+  right: 24px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+}
+.playlist-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.playlist-player-header button {
+  padding: 2px 8px;
+}
+.playlist-player iframe {
+  display: block;
+  width: 100%;
+  height: 200px;
+  border: 0;
+  border-radius: 6px;
+}
+.playlist-player a {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 
 button {
   background: var(--panel);
@@ -643,6 +688,23 @@ select {
 }
 
 @media (max-width: 700px) {
+  .app {
+    padding: 12px;
+  }
+  .topbar {
+    gap: 7px;
+  }
+  .topbar h1 {
+    font-size: 1rem;
+  }
+  .playlist-button {
+    font-size: 0.78rem;
+    padding: 6px 7px;
+  }
+  .playlist-player {
+    top: 58px;
+    right: 12px;
+  }
   .review-title,
   .review-toolbar {
     align-items: flex-start;

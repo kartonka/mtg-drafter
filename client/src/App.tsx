@@ -5,6 +5,7 @@ import { DeckBuilder } from './DeckBuilder';
 import { Draft } from './Draft';
 import { DraftReview } from './DraftReview';
 import { Lobby } from './Lobby';
+import { PlaylistPlayer } from './PlaylistPlayer';
 import { hashCode, useGame } from './useGame';
 
 export function App() {
@@ -27,6 +28,7 @@ export function App() {
         <div className="app">
             <header className="topbar">
                 <h1>MTG Cube Drafter</h1>
+                <PlaylistPlayer />
                 <span className={connected ? 'dot on' : 'dot'} title={connected ? 'Connected' : 'Reconnecting…'} />
                 {state && (
                     <button className="link" onClick={() => confirm('Leave this table?') && send({ t: 'leave' })}>
