@@ -67,6 +67,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                                         {...longPress.bind(card)}
                                         onClick={() => longPress.consumeClick()}
                                     />
+                                        <span className="card-search-text" aria-hidden="true">{card.name}</span>
                                     </div>
                                 ))}
                             </div>

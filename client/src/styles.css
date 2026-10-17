@@ -317,6 +317,22 @@ select {
 .card.selected {
   outline-color: var(--accent);
 }
+.searchable-card {
+  position: relative;
+  min-width: 0;
+}
+.card-search-text {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  color: transparent;
+  opacity: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  pointer-events: none;
+  user-select: text;
+}
 
 .waiting {
   color: var(--muted);
@@ -375,12 +391,12 @@ select {
   width: 100%;
   border-radius: 4.5%;
 }
-.preview-flip {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  padding: 5px 9px;
-  background: rgba(20, 22, 28, 0.92);
+.preview.has-back-face,
+.deck-preview.has-back-face {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(600px, calc(100vw - 32px));
 }
 
 .tabs {
@@ -462,7 +478,10 @@ select {
   border-radius: 4.5%;
   cursor: grab;
 }
-.stack-card + .stack-card {
+.stack-card-wrap {
+  width: 100%;
+}
+.stack-card-wrap + .stack-card-wrap {
   margin-top: calc(var(--w) * -1.393 + var(--strip));
 }
 .stack-card:hover {
@@ -486,6 +505,16 @@ select {
   width: 110px;
   border-radius: 4.5%;
   cursor: grab;
+}
+.pool-card-wrap,
+.bot-card-wrap {
+  flex: 0 0 110px;
+  width: 110px;
+}
+.pool-card-wrap .pool-card,
+.bot-card-wrap .bot-card {
+  display: block;
+  width: 100%;
 }
 .pool-card:hover {
   outline: 2px solid var(--accent);
@@ -769,17 +798,20 @@ select {
   display: flex;
   justify-content: center;
 }
-.zoom-content img {
-  cursor: pointer;
+.zoom-content.has-back-face {
+  gap: 12px;
+  width: min(960px, 96vw);
 }
-.zoom-flip,
+.zoom-content.has-back-face img {
+  width: calc(50% - 6px);
+  max-width: 47vw;
+  max-height: 86vh;
+  object-fit: contain;
+}
 .zoom-close {
   position: absolute;
   bottom: 12px;
   padding: 8px 14px;
-}
-.zoom-flip {
-  left: 12px;
 }
 .zoom-close {
   right: 12px;

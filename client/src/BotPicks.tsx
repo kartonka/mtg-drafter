@@ -37,16 +37,18 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
             </nav>
             <div className="bot-grid">
                 {cards.map((c) => (
-                    <img
-                        key={c.id}
-                        src={c.image}
-                        alt={c.name}
-                        className="bot-card"
-                        onMouseEnter={() => hoverPreview.show(c)}
-                        onMouseLeave={hoverPreview.hide}
-                        {...longPress.bind(c)}
-                        onClick={() => longPress.consumeClick()}
-                    />
+                    <div className="searchable-card bot-card-wrap" key={c.id}>
+                        <img
+                            src={c.image}
+                            alt={c.name}
+                            className="bot-card"
+                            onMouseEnter={() => hoverPreview.show(c)}
+                            onMouseLeave={hoverPreview.hide}
+                            {...longPress.bind(c)}
+                            onClick={() => longPress.consumeClick()}
+                        />
+                        <span className="card-search-text" aria-hidden="true">{c.name}</span>
+                    </div>
                 ))}
             </div>
             {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}

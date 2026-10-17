@@ -1,24 +1,43 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Card } from '../../shared/protocol';
 
 export function useHoverCardPreview() {
     const [preview, setPreview] = useState<Card | null>(null);
-    const timer = useRef<number | null>(null);
-    const clearTimer = () => {
-        if (timer.current !== null) window.clearTimeout(timer.current);
-        timer.current = null;
+    const showTimer = useRef<number | null>(null);
+    const hideTimer = useRef<number | null>(null);
+    const clearShowTimer = () => {
+        if (showTimer.current !== null) window.clearTimeout(showTimer.current);
+        showTimer.current = null;
     };
+    const clearHideTimer = () => {
+        if (hideTimer.current !== null) window.clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+    };
+    const clearTimers = () => {
+        clearShowTimer();
+        clearHideTimer();
+    };
+    useEffect(() => clearTimers, []);
+
     const show = (card: Card) => {
-        clearTimer();
-        setPreview(card);
+        clearTimers();
+        setPreview(null);
+        showTimer.current = window.setTimeout(() => {
+            showTimer.current = null;
+            setPreview(card);
+        }, 1000);
     };
     const hide = () => {
-        clearTimer();
-        timer.current = window.setTimeout(() => setPreview(null), 250);
+        clearShowTimer();
+        clearHideTimer();
+        hideTimer.current = window.setTimeout(() => {
+            hideTimer.current = null;
+            setPreview(null);
+        }, 500);
     };
-    const keep = clearTimer;
+    const keep = clearHideTimer;
     const clear = () => {
-        clearTimer();
+        clearTimers();
         setPreview(null);
     };
     return { preview, show, hide, keep, clear };

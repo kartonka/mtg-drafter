@@ -110,18 +110,20 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                 {pack ? (
                     <div className="grid">
                         {pack.map((c) => (
-                            <img
-                                key={c.id}
-                                src={c.image}
-                                alt={c.name}
-                                title={c.name}
-                                draggable={false}
-                                className={selected.includes(c.id) ? 'card selected' : 'card'}
-                                onMouseEnter={() => hoverPreview.show(c)}
-                                onMouseLeave={hoverPreview.hide}
-                                {...longPress.bind(c)}
-                                onClick={() => { if (!longPress.consumeClick()) selectCard(c.id); }}
-                            />
+                            <div className="searchable-card" key={c.id}>
+                                <img
+                                    src={c.image}
+                                    alt={c.name}
+                                    title={c.name}
+                                    draggable={false}
+                                    className={selected.includes(c.id) ? 'card selected' : 'card'}
+                                    onMouseEnter={() => hoverPreview.show(c)}
+                                    onMouseLeave={hoverPreview.hide}
+                                    {...longPress.bind(c)}
+                                    onClick={() => { if (!longPress.consumeClick()) selectCard(c.id); }}
+                                />
+                                <span className="card-search-text" aria-hidden="true">{c.name}</span>
+                            </div>
                         ))}
                     </div>
                 ) : (

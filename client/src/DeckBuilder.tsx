@@ -316,17 +316,19 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                             {col.map((id) => {
                                 const c = cardOf(id)!;
                                 return (
-                                    <img
-                                        key={id}
-                                        src={c.image}
-                                        alt={c.name}
-                                        className={id === selected ? 'stack-card selected' : 'stack-card'}
-                                        onMouseEnter={() => hoverPreview.show(c)}
-                                        onMouseLeave={hoverPreview.hide}
-                                        {...longPress.bind(c)}
-                                        onClick={() => { if (!longPress.consumeClick()) clickCard(id); }}
-                                        {...dragProps(id)}
-                                    />
+                                    <div className="searchable-card stack-card-wrap" key={id}>
+                                        <img
+                                            src={c.image}
+                                            alt={c.name}
+                                            className={id === selected ? 'stack-card selected' : 'stack-card'}
+                                            onMouseEnter={() => hoverPreview.show(c)}
+                                            onMouseLeave={hoverPreview.hide}
+                                            {...longPress.bind(c)}
+                                            onClick={() => { if (!longPress.consumeClick()) clickCard(id); }}
+                                            {...dragProps(id)}
+                                        />
+                                        <span className="card-search-text" aria-hidden="true">{c.name}</span>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -344,17 +346,19 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
             <div className={cls('pool-grid', 'pool')} {...zone('pool', { kind: 'pool' })}>
                 {poolCards.length === 0 && <span className="muted">Drop cards here to take them out of the deck.</span>}
                 {poolCards.map((c) => (
-                    <img
-                        key={c.id}
-                        src={c.image}
-                        alt={c.name}
-                        className={c.id === selected ? 'pool-card selected' : 'pool-card'}
-                        onClick={() => { if (!longPress.consumeClick()) clickCard(c.id); }}
-                        onMouseEnter={() => hoverPreview.show(c)}
-                        onMouseLeave={hoverPreview.hide}
-                        {...longPress.bind(c)}
-                        {...dragProps(c.id)}
-                    />
+                    <div className="searchable-card pool-card-wrap" key={c.id}>
+                        <img
+                            src={c.image}
+                            alt={c.name}
+                            className={c.id === selected ? 'pool-card selected' : 'pool-card'}
+                            onClick={() => { if (!longPress.consumeClick()) clickCard(c.id); }}
+                            onMouseEnter={() => hoverPreview.show(c)}
+                            onMouseLeave={hoverPreview.hide}
+                            {...longPress.bind(c)}
+                            {...dragProps(c.id)}
+                        />
+                        <span className="card-search-text" aria-hidden="true">{c.name}</span>
+                    </div>
                 ))}
             </div>
 
