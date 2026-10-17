@@ -16,12 +16,67 @@ const tables = new Map<string, Table>();
 const conns = new WeakMap<WebSocket, { tableId: string; playerId: string }>();
 const creating = new WeakSet<WebSocket>();
 const archivedInProcess = new Set<string>();
+const draftTimers = new WeakMap<Table, Map<string, ReturnType<typeof setTimeout>>>();
 
 const send = (ws: WebSocket, msg: ServerMsg) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 };
 
+function clearPickTimer(table: Table, playerId: string) {
+    const timers = draftTimers.get(table);
+    const timer = timers?.get(playerId);
+    if (timer) clearTimeout(timer);
+    timers?.delete(playerId);
+    table.setPickDeadline(playerId, null);
+}
+
+function arenaPickSeconds(round: number, pick: number) {
+    // Arena publishes roughly 70 seconds for P1P1 and 30 seconds by P3P7.
+    return Math.max(30, 70 - (round - 1) * 8 - (pick - 1) * 4);
+}
+
+function syncDraftTimers(table: Table) {
+    let timers = draftTimers.get(table);
+    if (!timers) {
+        timers = new Map();
+        draftTimers.set(table, timers);
+    }
+    const draft = table.draft;
+    if (!draft || table.phase !== 'drafting') {
+        for (const playerId of timers.keys()) clearPickTimer(table, playerId);
+        return;
+    }
+
+    const active = new Set<string>();
+    table.players.forEach((player, seat) => {
+        if (player.isBot || !draft.currentPack(seat)) return;
+        active.add(player.id);
+        if (timers!.has(player.id)) return;
+        const pick = draft.logs[seat].filter((entry) => entry.round === draft.round + 1).length + 1;
+        const seconds = arenaPickSeconds(draft.round + 1, pick);
+        const deadline = Date.now() + seconds * 1000;
+        table.setPickDeadline(player.id, deadline);
+        const timer = setTimeout(() => {
+            if (timers!.get(player.id) !== timer) return;
+            timers!.delete(player.id);
+            table.setPickDeadline(player.id, null);
+            try {
+                table.pickTimedOut(player.id);
+            } catch (err) {
+                console.error('Automatic draft pick failed:', err);
+            }
+            broadcast(table);
+        }, seconds * 1000);
+        timers!.set(player.id, timer);
+    });
+
+    for (const playerId of timers.keys()) {
+        if (!active.has(playerId)) clearPickTimer(table, playerId);
+    }
+}
+
 function broadcast(table: Table) {
+    syncDraftTimers(table);
     archiveCompletedDraft(table);
     for (const p of table.players) if (p.ws) send(p.ws, { t: 'state', state: table.view(p.id) });
 }
@@ -58,7 +113,10 @@ function detach(ws: WebSocket) {
 
 function dropIfAbandoned(table: Table) {
     // Keep completed drafts available by table code for review until normal TTL cleanup.
-    if (table.abandoned && table.phase !== 'done') tables.delete(table.id);
+    if (table.abandoned && table.phase !== 'done') {
+        for (const playerId of draftTimers.get(table)?.keys() ?? []) clearPickTimer(table, playerId);
+        tables.delete(table.id);
+    }
 }
 
 async function handle(ws: WebSocket, msg: ClientMsg) {
@@ -126,6 +184,9 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         case 'addBot':
             table.addBot(conn.playerId);
             break;
+        case 'reorder':
+            table.reorderPlayers(conn.playerId, msg.playerIds);
+            break;
         case 'kick': {
             const targetWs = table.player(String(msg.playerId))?.ws;
             table.kick(conn.playerId, String(msg.playerId));
@@ -141,12 +202,16 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         case 'start':
             table.start(conn.playerId);
             break;
+        case 'reservePick':
+            table.reservePick(conn.playerId, msg.cardIds, msg.additionalCardId);
+            return;
         case 'pick':
             {
                 // Accept the old single-card shape from already-open browser tabs.
                 const pick = msg as typeof msg & { cardId?: string; cardIds?: string[] };
                 const cardIds = pick.cardIds ?? (pick.cardId ? [pick.cardId] : []);
                 table.pick(conn.playerId, cardIds, pick.additionalCardId);
+                clearPickTimer(table, conn.playerId);
             }
             break;
         case 'leave':
@@ -222,7 +287,12 @@ setInterval(() => {
         ws.ping();
     }
     const cutoff = Date.now() - TABLE_TTL_MS;
-    for (const [id, table] of tables) if (table.lastActive < cutoff) tables.delete(id);
+    for (const [id, table] of tables) {
+        if (table.lastActive < cutoff) {
+            for (const playerId of draftTimers.get(table)?.keys() ?? []) clearPickTimer(table, playerId);
+            tables.delete(id);
+        }
+    }
 }, 30_000);
 
 server.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));

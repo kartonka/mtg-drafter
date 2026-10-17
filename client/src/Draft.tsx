@@ -13,6 +13,7 @@ export function Draft({ state, send }: Props) {
     const [useLibrarian, setUseLibrarian] = useState(false);
     const [preview, setPreview] = useState<Card | null>(null);
     const [zoom, setZoom] = useState<Card | null>(null);
+    const [now, setNow] = useState(Date.now());
     const pack = draft?.pack ?? null;
     const selected = pack ? selectedIds.filter((id) => pack.some((card) => card.id === id)) : [];
     const basePickCount = Math.min(state.settings.pickCount, pack?.length ?? 0);
@@ -20,6 +21,8 @@ export function Draft({ state, send }: Props) {
     const hasLibrarian = state.picks.some((card) => card.name.toLocaleLowerCase() === 'cogwork librarian');
     const canUseLibrarian = hasLibrarian && (pack?.length ?? 0) > basePickCount;
     const lastSelected = pack?.find((c) => c.id === selected[selected.length - 1]) ?? null;
+    const secondsLeft = draft?.pickDeadline ? Math.max(0, Math.ceil((draft.pickDeadline - now) / 1000)) : null;
+    const packKey = pack?.map((card) => card.id).join(',') ?? '';
 
     const confirm = () => {
         if (selected.length !== requiredPickCount) return;
@@ -37,6 +40,25 @@ export function Draft({ state, send }: Props) {
         const target = requiredPickCount;
         setSelectedIds(selected.length < target ? [...selected, id] : [...selected.slice(0, target - 1), id]);
     };
+
+    useEffect(() => {
+        if (!draft?.pickDeadline) return;
+        setNow(Date.now());
+        const interval = window.setInterval(() => setNow(Date.now()), 250);
+        return () => window.clearInterval(interval);
+    }, [draft?.pickDeadline, draft?.round, draft?.pickNumber]);
+
+    useEffect(() => {
+        setSelectedIds([]);
+        setUseLibrarian(false);
+    }, [packKey]);
+
+    useEffect(() => {
+        if (!pack) return;
+        const cardIds = selected.slice(0, basePickCount);
+        const additionalCardId = useLibrarian && selected.length === requiredPickCount ? selected[basePickCount] : undefined;
+        send({ t: 'reservePick', cardIds, ...(additionalCardId ? { additionalCardId } : {}) });
+    }, [selectedIds, useLibrarian, packKey, basePickCount, requiredPickCount, send]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -79,6 +101,7 @@ export function Draft({ state, send }: Props) {
                         Pack {draft.round} of {draft.totalRounds}
                         {pack && ` · Pick ${draft.pickNumber} · choose ${basePickCount}${basePickCount === 1 ? ' card' : ' cards'}`}
                     </strong>
+                    {pack && secondsLeft !== null && <span className={secondsLeft <= 10 ? 'pick-timer urgent' : 'pick-timer'}>Time {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}</span>}
                     <span className="muted">Passing {draft.direction === 1 ? 'left' : 'right'} to {next?.name}</span>
                     {pack && controls('desktop-only')}
                 </div>

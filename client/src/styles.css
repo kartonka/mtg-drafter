@@ -170,6 +170,31 @@ select {
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
+.players li.reorderable {
+  cursor: grab;
+}
+.players li.reorderable:active {
+  cursor: grabbing;
+}
+.players li.reorderable:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+.drag-handle {
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  user-select: none;
+}
+.seat-order-hint {
+  font-size: 0.82rem;
+}
+.seat-order-controls {
+  display: none;
+  gap: 4px;
+}
+.seat-order-controls button {
+  padding: 2px 8px;
+}
 .players .name {
   flex: 1;
 }
@@ -200,6 +225,14 @@ select {
 }
 .draft-header .primary {
   margin-left: auto;
+}
+.pick-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pick-timer.urgent {
+  color: #ff7373;
 }
 
 .grid {
@@ -666,6 +699,9 @@ button,
   .bot-card {
     -webkit-touch-callout: none;
     user-select: none;
+  }
+  .seat-order-controls {
+    display: flex;
   }
 }
 

@@ -3,7 +3,7 @@ import type { WebSocket } from 'ws';
 import { LIMITS, type Card, type DraftReviewView, type DraftSettings, type Phase, type TableView } from '../../shared/protocol';
 import { botPick } from './bot';
 import type { Cube } from './cube';
-import { Draft, makePacks, shuffle } from './draft';
+import { Draft, makePacks } from './draft';
 
 export class GameError extends Error { }
 
@@ -41,6 +41,8 @@ export class Table {
     startedAt: string | null = null;
     settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, pickCount: 1, botStrategy: 'smart' };
     lastActive = Date.now();
+    private readonly pickDeadlines = new Map<string, number>();
+    private readonly reservedPicks = new Map<string, { cardIds: string[]; additionalCardId?: string }>();
     private botCount = 0;
 
     constructor(readonly id: string, readonly cube: Cube) { }
@@ -66,6 +68,20 @@ export class Table {
             ready: true,
             ws: null,
         });
+    }
+
+    reorderPlayers(byId: string, playerIds: unknown) {
+        this.requireHost(byId);
+        this.requireLobby();
+        if (!Array.isArray(playerIds) || playerIds.length !== this.players.length) {
+            throw new GameError('That seat order is invalid.');
+        }
+        const ids = playerIds.map(String);
+        const playersById = new Map(this.players.map((player) => [player.id, player]));
+        if (new Set(ids).size !== ids.length || ids.some((id) => !playersById.has(id))) {
+            throw new GameError('That seat order is invalid.');
+        }
+        this.players = ids.map((id) => playersById.get(id)!);
     }
 
     setReady(playerId: string, ready: boolean) {
@@ -112,7 +128,6 @@ export class Table {
             throw new GameError(`The cube has ${this.cube.cards.length} cards but ${needed} are needed. Reduce packs or pack size.`);
         }
 
-        this.players = shuffle(this.players);
         this.startedAt = new Date().toISOString();
         this.draft = new Draft(makePacks(this.cube.cards, this.players.length, packsPerPlayer, cardsPerPack), this.players.length, this.settings.pickCount);
         this.phase = 'drafting';
@@ -125,7 +140,52 @@ export class Table {
         if (seat < 0 || !this.draft.pick(seat, cardIds.map(String), additionalCardId === undefined ? undefined : String(additionalCardId))) {
             throw new GameError('That pick is not available.');
         }
+        this.pickDeadlines.delete(playerId);
+        this.reservedPicks.delete(playerId);
         this.advance();
+    }
+
+    reservePick(playerId: string, cardIds: string[], additionalCardId?: string) {
+        if (this.phase !== 'drafting' || !this.draft) throw new GameError('No draft in progress.');
+        const seat = this.players.findIndex((player) => player.id === playerId);
+        const pack = seat >= 0 ? this.draft.currentPack(seat) : null;
+        if (!pack) throw new GameError('That pick is no longer available.');
+        const required = Math.min(this.settings.pickCount, pack.length);
+        const ids = cardIds.map(String);
+        if (ids.length > required || new Set(ids).size !== ids.length || ids.some((id) => !pack.some((card) => card.id === id))) {
+            throw new GameError('That selection is no longer available.');
+        }
+        const extra = additionalCardId === undefined ? undefined : String(additionalCardId);
+        if (extra && (
+            ids.length !== required || pack.length <= required || ids.includes(extra) || !pack.some((card) => card.id === extra) ||
+            !this.draft.picks[seat].some((card) => card.name.toLocaleLowerCase() === 'cogwork librarian')
+        )) throw new GameError('Cogwork Librarian cannot be used for that selection.');
+        if (ids.length === 0 && !extra) this.reservedPicks.delete(playerId);
+        else this.reservedPicks.set(playerId, { cardIds: ids, ...(extra ? { additionalCardId: extra } : {}) });
+    }
+
+    pickTimedOut(playerId: string) {
+        if (this.phase !== 'drafting' || !this.draft) return;
+        const seat = this.players.findIndex((player) => player.id === playerId);
+        const pack = seat >= 0 ? this.draft.currentPack(seat) : null;
+        if (!pack) return;
+        const required = Math.min(this.settings.pickCount, pack.length);
+        const reserved = this.reservedPicks.get(playerId);
+        const cardIds = (reserved?.cardIds ?? []).filter((id) => pack.some((card) => card.id === id));
+        const available = pack.filter((card) => !cardIds.includes(card.id));
+        while (cardIds.length < required && available.length > 0) {
+            const [card] = available.splice(Math.floor(Math.random() * available.length), 1);
+            cardIds.push(card.id);
+        }
+        const extra = reserved?.additionalCardId && pack.some((card) => card.id === reserved.additionalCardId)
+            ? reserved.additionalCardId
+            : undefined;
+        this.pick(playerId, cardIds, extra);
+    }
+
+    setPickDeadline(playerId: string, deadline: number | null) {
+        if (deadline === null) this.pickDeadlines.delete(playerId);
+        else this.pickDeadlines.set(playerId, deadline);
     }
 
     player(id: string) {
@@ -158,6 +218,7 @@ export class Table {
                     round: Math.min(d.round + 1, d.totalRounds),
                     totalRounds: d.totalRounds,
                     pickNumber: pack ? d.logs[seat].filter((entry) => entry.round === d.round + 1).length + 1 : 0,
+                    pickDeadline: pack ? this.pickDeadlines.get(playerId) ?? null : null,
                     direction: d.direction,
                     pack,
                 }

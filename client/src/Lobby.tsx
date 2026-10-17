@@ -17,6 +17,27 @@ export function Lobby({ state, send }: Props) {
     const tooFew = needed > state.cube.size;
     const allReady = state.players.every((p) => p.ready);
     const [copied, setCopied] = useState(false);
+    const [draggingPlayer, setDraggingPlayer] = useState<string | null>(null);
+
+    const movePlayer = (targetId: string) => {
+        if (!draggingPlayer || draggingPlayer === targetId) return;
+        const playerIds = state.players.map((player) => player.id);
+        const from = playerIds.indexOf(draggingPlayer);
+        const to = playerIds.indexOf(targetId);
+        if (from < 0 || to < 0) return;
+        playerIds.splice(to, 0, ...playerIds.splice(from, 1));
+        send({ t: 'reorder', playerIds });
+        setDraggingPlayer(null);
+    };
+
+    const shiftPlayer = (playerId: string, offset: -1 | 1) => {
+        const playerIds = state.players.map((player) => player.id);
+        const from = playerIds.indexOf(playerId);
+        const to = from + offset;
+        if (from < 0 || to < 0 || to >= playerIds.length) return;
+        playerIds.splice(to, 0, ...playerIds.splice(from, 1));
+        send({ t: 'reorder', playerIds });
+    };
 
     const copyLink = async () => {
         await copyText(`${location.origin}/#${state.id}`);
@@ -45,9 +66,28 @@ export function Lobby({ state, send }: Props) {
                     </p>
                 ))}
 
+                {isHost && <span className="muted seat-order-hint">Drag players to set the draft seat order.</span>}
                 <ul className="players">
                     {state.players.map((p) => (
-                        <li key={p.id}>
+                        <li
+                            key={p.id}
+                            className={isHost ? 'reorderable' : ''}
+                            draggable={isHost}
+                            onDragStart={(event) => {
+                                if (!isHost) return;
+                                setDraggingPlayer(p.id);
+                                event.dataTransfer.effectAllowed = 'move';
+                                event.dataTransfer.setData('text/plain', p.id);
+                            }}
+                            onDragOver={(event) => { if (isHost && draggingPlayer) event.preventDefault(); }}
+                            onDrop={(event) => { event.preventDefault(); movePlayer(p.id); }}
+                            onDragEnd={() => setDraggingPlayer(null)}
+                        >
+                            {isHost && <span className="drag-handle" aria-hidden="true" title="Drag to change seat order">⠿</span>}
+                            {isHost && <span className="seat-order-controls">
+                                <button aria-label={`Move ${p.name} up`} disabled={state.players[0]?.id === p.id} onClick={() => shiftPlayer(p.id, -1)}>↑</button>
+                                <button aria-label={`Move ${p.name} down`} disabled={state.players[state.players.length - 1]?.id === p.id} onClick={() => shiftPlayer(p.id, 1)}>↓</button>
+                            </span>}
                             <span className={p.ready ? 'badge ready' : 'badge'}>{p.ready ? 'Ready' : 'Not ready'}</span>
                             <span className="name">
                                 {p.name}

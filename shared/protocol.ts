@@ -36,6 +36,8 @@ export interface DraftView {
     round: number;
     totalRounds: number;
     pickNumber: number;
+    /** Server-clock deadline for this player's current pick. */
+    pickDeadline: number | null;
     /** 1 = packs go to the next seat in `players`, -1 = to the previous one. */
     direction: 1 | -1;
     pack: Card[] | null;
@@ -104,11 +106,13 @@ export type ClientMsg =
     | { t: 'review'; tableId: string }
     | { t: 'ready'; ready: boolean }
     | { t: 'addBot' }
+    | { t: 'reorder'; playerIds: string[] }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
     | { t: 'kick'; playerId: string }
     | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; pickCount: number; botStrategy: BotStrategy }
     | { t: 'start' }
     | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
+    | { t: 'reservePick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'leave' };
 
 export type ServerMsg =
