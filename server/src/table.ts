@@ -39,7 +39,7 @@ export class Table {
     phase: Phase = 'lobby';
     draft: Draft | null = null;
     startedAt: string | null = null;
-    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, pickCount: 1, botStrategy: 'smart' };
+    settings: DraftSettings = { packsPerPlayer: 3, cardsPerPack: 15, pickCount: 1, botStrategy: 'smart', timerStrategy: 'arena' };
     lastActive = Date.now();
     private readonly pickDeadlines = new Map<string, number>();
     private readonly reservedPicks = new Map<string, { cardIds: string[]; additionalCardId?: string }>();
@@ -91,7 +91,7 @@ export class Table {
         if (p) p.ready = !!ready;
     }
 
-    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown, pickCount: unknown, botStrategy: unknown) {
+    setSettings(byId: string, packsPerPlayer: unknown, cardsPerPack: unknown, pickCount: unknown, botStrategy: unknown, timerStrategy: unknown) {
         this.requireHost(byId);
         this.requireLobby();
         this.settings = {
@@ -99,6 +99,7 @@ export class Table {
             cardsPerPack: clamp(cardsPerPack, LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack),
             pickCount: clamp(pickCount, 1, 2),
             botStrategy: botStrategy === 'random' ? 'random' : 'smart',
+            timerStrategy: timerStrategy === 'extended' || timerStrategy === 'off' ? timerStrategy : 'arena',
         };
     }
 

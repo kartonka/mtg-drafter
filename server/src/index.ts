@@ -32,7 +32,8 @@ function clearPickTimer(table: Table, playerId: string) {
 
 function arenaPickSeconds(round: number, pick: number) {
     // Arena publishes roughly 70 seconds for P1P1 and 30 seconds by P3P7.
-    return Math.max(30, 70 - (round - 1) * 8 - (pick - 1) * 4);
+    // Interpolate those milestones, with a short floor for the end of a pack.
+    return Math.max(5, 70 - (round - 1) * 8 - (pick - 1) * 4);
 }
 
 function syncDraftTimers(table: Table) {
@@ -42,6 +43,10 @@ function syncDraftTimers(table: Table) {
         draftTimers.set(table, timers);
     }
     const draft = table.draft;
+    if (table.settings.timerStrategy === 'off') {
+        for (const playerId of timers.keys()) clearPickTimer(table, playerId);
+        return;
+    }
     if (!draft || table.phase !== 'drafting') {
         for (const playerId of timers.keys()) clearPickTimer(table, playerId);
         return;
@@ -53,7 +58,8 @@ function syncDraftTimers(table: Table) {
         active.add(player.id);
         if (timers!.has(player.id)) return;
         const pick = draft.logs[seat].filter((entry) => entry.round === draft.round + 1).length + 1;
-        const seconds = arenaPickSeconds(draft.round + 1, pick);
+        const arenaSeconds = arenaPickSeconds(draft.round + 1, pick);
+        const seconds = table.settings.timerStrategy === 'extended' ? arenaSeconds * 2 : arenaSeconds;
         const deadline = Date.now() + seconds * 1000;
         table.setPickDeadline(player.id, deadline);
         const timer = setTimeout(() => {
@@ -197,7 +203,7 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             break;
         }
         case 'settings':
-            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack, msg.pickCount, msg.botStrategy);
+            table.setSettings(conn.playerId, msg.packsPerPlayer, msg.cardsPerPack, msg.pickCount, msg.botStrategy, msg.timerStrategy);
             break;
         case 'start':
             table.start(conn.playerId);

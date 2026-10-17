@@ -11,17 +11,24 @@ export interface Card {
     land: boolean;
     /** Scryfall type line, used for deck organization. */
     typeLine?: string;
+    /** Rules text used to identify mechanics for the card preview helper. */
+    oracleText?: string;
+    backOracleText?: string;
+    /** Scryfall's normalized keyword abilities/actions for this card. */
+    keywords?: string[];
     /** Rough strength within its cube, 0 (weak) to 1 (strong). Used by bots. */
     power: number;
 }
 
 export type BotStrategy = 'random' | 'smart';
+export type TimerStrategy = 'arena' | 'extended' | 'off';
 
 export interface DraftSettings {
     packsPerPlayer: number;
     cardsPerPack: number;
     pickCount: number;
     botStrategy: BotStrategy;
+    timerStrategy: TimerStrategy;
 }
 
 export type Phase = 'lobby' | 'drafting' | 'done';
@@ -122,7 +129,7 @@ export type ClientMsg =
     | { t: 'reorder'; playerIds: string[] }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
     | { t: 'kick'; playerId: string }
-    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; pickCount: number; botStrategy: BotStrategy }
+    | { t: 'settings'; packsPerPlayer: number; cardsPerPack: number; pickCount: number; botStrategy: BotStrategy; timerStrategy: TimerStrategy }
     | { t: 'start' }
     | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'reservePick'; cardIds: string[]; additionalCardId?: string }

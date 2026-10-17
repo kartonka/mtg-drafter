@@ -12,7 +12,7 @@ interface Props {
 export function Lobby({ state, send }: Props) {
     const isHost = state.you === state.hostId;
     const me = state.players.find((p) => p.id === state.you);
-    const { packsPerPlayer, cardsPerPack, pickCount, botStrategy } = state.settings;
+    const { packsPerPlayer, cardsPerPack, pickCount, botStrategy, timerStrategy } = state.settings;
     const needed = state.players.length * packsPerPlayer * cardsPerPack;
     const tooFew = needed > state.cube.size;
     const allReady = state.players.every((p) => p.ready);
@@ -115,7 +115,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={packsPerPlayer}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack, pickCount, botStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer: Number(e.target.value), cardsPerPack, pickCount, botStrategy, timerStrategy })}
                     >
                         {range(1, LIMITS.maxPacks).map((n) => (
                             <option key={n}>{n}</option>
@@ -127,7 +127,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={cardsPerPack}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value), pickCount, botStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack: Number(e.target.value), pickCount, botStrategy, timerStrategy })}
                     >
                         {range(LIMITS.minCardsPerPack, LIMITS.maxCardsPerPack).map((n) => (
                             <option key={n}>{n}</option>
@@ -139,7 +139,7 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={pickCount}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount: Number(e.target.value), botStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount: Number(e.target.value), botStrategy, timerStrategy })}
                     >
                         <option value={1}>1 card (normal draft)</option>
                         <option value={2}>2 cards (pick two)</option>
@@ -150,10 +150,22 @@ export function Lobby({ state, send }: Props) {
                     <select
                         disabled={!isHost}
                         value={botStrategy}
-                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount, botStrategy: e.target.value as BotStrategy })}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount, botStrategy: e.target.value as BotStrategy, timerStrategy })}
                     >
                         <option value="smart">Smart (colors and card strength)</option>
                         <option value="random">Random</option>
+                    </select>
+                </label>
+                <label className="field">
+                    Pick timer
+                    <select
+                        disabled={!isHost}
+                        value={timerStrategy}
+                        onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount, botStrategy, timerStrategy: e.target.value as typeof timerStrategy })}
+                    >
+                        <option value="arena">Arena</option>
+                        <option value="extended">Extended (2× Arena)</option>
+                        <option value="off">Off</option>
                     </select>
                 </label>
                 <p className={tooFew ? 'warn' : 'muted'}>
