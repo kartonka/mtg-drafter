@@ -5,7 +5,7 @@ import { exportProxyPdf } from './proxyPdf';
 import { useCoarsePointer } from './useCoarsePointer';
 import { ZoomOverlay } from './ZoomOverlay';
 
-type GroupMode = 'cmc' | 'color';
+type GroupMode = 'cmc' | 'color' | 'type';
 
 /** Deck columns hold card ids, left to right. Basic lands are deck-only instances with ids like `b:Forest:x7k2`. */
 interface Layout {
@@ -17,22 +17,35 @@ type DropTarget = { kind: 'column'; index: number } | { kind: 'gap'; index: numb
 
 const CMC_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7+', 'Lands'];
 const COLOR_ORDER = ['White', 'Blue', 'Black', 'Red', 'Green', 'Multicolor', 'Colorless', 'Lands'];
+const TYPE_ORDER = ['Creatures', 'Instants', 'Sorceries', 'Enchantments', 'Artifacts', 'Planeswalkers', 'Battles', 'Lands', 'Other'];
 const COLOR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
 
 const isBasic = (id: string) => id.startsWith('b:');
 const byCmcThenName = (a: Card, b: Card) => a.cmc - b.cmc || a.name.localeCompare(b.name);
+const byName = (a: Card, b: Card) => a.name.localeCompare(b.name);
 
 function groupLabel(c: Card, mode: GroupMode): string {
     if (c.land) return 'Lands';
     if (mode === 'cmc') return c.cmc >= 7 ? '7+' : String(Math.floor(c.cmc));
+    if (mode === 'type') {
+        const line = c.typeLine ?? '';
+        if (/\bCreature\b/.test(line)) return 'Creatures';
+        if (/\bInstant\b/.test(line)) return 'Instants';
+        if (/\bSorcery\b/.test(line)) return 'Sorceries';
+        if (/\bEnchantment\b/.test(line)) return 'Enchantments';
+        if (/\bArtifact\b/.test(line)) return 'Artifacts';
+        if (/\bPlaneswalker\b/.test(line)) return 'Planeswalkers';
+        if (/\bBattle\b/.test(line)) return 'Battles';
+        return 'Other';
+    }
     if (c.colors.length === 0) return 'Colorless';
     return c.colors.length > 1 ? 'Multicolor' : (COLOR_NAMES[c.colors[0]] ?? 'Colorless');
 }
 
 function group(cards: Card[], mode: GroupMode): Card[][] {
-    const order = mode === 'cmc' ? CMC_ORDER : COLOR_ORDER;
+    const order = mode === 'cmc' ? CMC_ORDER : mode === 'color' ? COLOR_ORDER : TYPE_ORDER;
     return order
-        .map((label) => cards.filter((c) => groupLabel(c, mode) === label).sort(byCmcThenName))
+        .map((label) => cards.filter((c) => groupLabel(c, mode) === label).sort(byName))
         .filter((g) => g.length > 0);
 }
 
@@ -97,6 +110,9 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
 
     const deckCards = layout.columns.flat().map((id) => cardOf(id)!);
     const poolCards = layout.pool.map((id) => cardOf(id)!).sort(byCmcThenName);
+    const typeStats = TYPE_ORDER
+        .map((type) => ({ type, count: deckCards.filter((card) => groupLabel(card, 'type') === type).length }))
+        .filter(({ count }) => count > 0);
 
     const commit = (next: Layout) => {
         setRaw(next);
@@ -236,6 +252,9 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
                 <button onClick={() => arrange('color')} disabled={deckCards.length === 0}>
                     Arrange by color
                 </button>
+                <button onClick={() => arrange('type')} disabled={deckCards.length === 0}>
+                    Arrange by card type
+                </button>
                 <button onClick={() => copy('deck', deckCards)} disabled={deckCards.length === 0}>
                     {copied === 'deck' ? 'Copied!' : 'Copy deck list'}
                 </button>
@@ -259,6 +278,16 @@ export function DeckBuilder({ picks, basics, storageKey, done }: Props) {
                         </span>
                     ))}
                 </div>
+            )}
+
+            {done && (
+                <section className="type-stats" aria-label="Deck card type counts">
+                    <strong>Card types</strong>
+                    {typeStats.map(({ type, count }) => (
+                        <span className="type-stat" key={type}>{type} <b>{count}</b></span>
+                    ))}
+                    {typeStats.length === 0 && <span className="muted">No cards in deck.</span>}
+                </section>
             )}
 
             <div className="columns-row">

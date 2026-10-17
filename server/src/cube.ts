@@ -102,11 +102,11 @@ export async function loadSavedCube(name: string): Promise<Cube> {
 }
 
 /** Pulls deck-building metadata out of a Scryfall card object; null if any is missing. */
-function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land'> | null {
+function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine'> | null {
     const typeLine = c?.type_line ?? c?.card_faces?.[0]?.type_line;
     const colors = c?.colors ?? c?.card_faces?.[0]?.colors;
     if (typeof c?.cmc !== 'number' || typeof typeLine !== 'string' || !Array.isArray(colors)) return null;
-    return { cmc: c.cmc, colors: colors.filter((x: unknown) => typeof x === 'string'), land: /\bLand\b/.test(typeLine.split(' // ')[0]) };
+    return { cmc: c.cmc, colors: colors.filter((x: unknown) => typeof x === 'string'), land: /\bLand\b/.test(typeLine.split(' // ')[0]), typeLine };
 }
 const MOXFIELD_URL = /^https?:\/\/(?:www\.)?moxfield\.com\/(cubes|decks)\/([A-Za-z0-9_-]+)/i;
 

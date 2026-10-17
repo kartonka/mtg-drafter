@@ -7,6 +7,8 @@ export interface Card {
     /** Subset of W U B R G. */
     colors: string[];
     land: boolean;
+    /** Scryfall type line, used for deck organization. */
+    typeLine?: string;
     /** Rough strength within its cube, 0 (weak) to 1 (strong). Used by bots. */
     power: number;
 }

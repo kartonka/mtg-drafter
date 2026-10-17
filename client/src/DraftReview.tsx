@@ -11,7 +11,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
         if (!player) return [];
         return columns.map((value) => ({
             value,
-            cards: player.picks.filter((card) => manaValue(card) === value),
+            cards: player.picks.filter((card) => manaValue(card) === value).sort((a, b) => a.name.localeCompare(b.name)),
         })).filter((column) => column.cards.length > 0);
     }, [player]);
 
