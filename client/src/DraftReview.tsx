@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import type { DraftReviewView } from '../../shared/protocol';
+import type { Card } from '../../shared/protocol';
 import { DeckBuilder } from './DeckBuilder';
+import { CardPreview } from './CardPreview';
+import { ZoomOverlay } from './ZoomOverlay';
+import { useLongPressPreview } from './useLongPressPreview';
+import { useHoverCardPreview } from './useHoverCardPreview';
 
 export function DraftReview({ review, onClose }: { review: DraftReviewView; onClose: () => void }) {
     const [playerId, setPlayerId] = useState(review.players[0]?.id ?? '');
+    const [zoom, setZoom] = useState<Card | null>(null);
+    const longPress = useLongPressPreview(setZoom);
+    const hoverPreview = useHoverCardPreview();
     const player = review.players.find((candidate) => candidate.id === playerId) ?? review.players[0];
 
     const download = () => {
@@ -50,7 +58,15 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                             <div className="pick-row-cards">
                                 {entry.pack.map((card) => (
                                     <div className={card.id === entry.picked.id || entry.alsoPicked?.some((picked) => picked.id === card.id) || card.id === entry.additionalPicked?.id ? 'history-card picked' : 'history-card'} key={card.id}>
-                                        <img src={card.image} alt={card.name} title={card.name} />
+                                    <img
+                                        src={card.image}
+                                        alt={card.name}
+                                        title={card.name}
+                                        onMouseEnter={() => hoverPreview.show(card)}
+                                        onMouseLeave={hoverPreview.hide}
+                                        {...longPress.bind(card)}
+                                        onClick={() => longPress.consumeClick()}
+                                    />
                                     </div>
                                 ))}
                             </div>
@@ -70,6 +86,8 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                     done
                 />
             </>}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
         </section>
     );
 }

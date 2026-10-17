@@ -2,6 +2,8 @@ export interface Card {
     id: string;
     name: string;
     image: string;
+    /** Back face image for transforming / double-faced cards, when available. */
+    backImage?: string;
     /** Mana value of the front face. */
     cmc: number;
     /** Subset of W U B R G. */

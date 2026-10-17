@@ -321,8 +321,21 @@ select {
   top: 80px;
   width: 280px;
   border-radius: 4.5%;
-  pointer-events: none;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+.preview img,
+.deck-preview img {
+  display: block;
+  width: 100%;
+  border-radius: 4.5%;
+}
+.preview-flip {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 5px 9px;
+  background: rgba(20, 22, 28, 0.92);
 }
 
 .tabs {
@@ -455,7 +468,6 @@ select {
   top: 90px;
   width: 300px;
   border-radius: 4.5%;
-  pointer-events: none;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
   z-index: 10;
 }
@@ -689,6 +701,26 @@ select {
   max-width: 92vw;
   max-height: 92vh;
   border-radius: 4.5%;
+}
+.zoom-content {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.zoom-content img {
+  cursor: pointer;
+}
+.zoom-flip,
+.zoom-close {
+  position: absolute;
+  bottom: 12px;
+  padding: 8px 14px;
+}
+.zoom-flip {
+  left: 12px;
+}
+.zoom-close {
+  right: 12px;
 }
 
 button,

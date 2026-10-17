@@ -1,6 +1,9 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Card, ClientMsg, TableView } from '../../shared/protocol';
+import { CardPreview } from './CardPreview';
 import { ZoomOverlay } from './ZoomOverlay';
+import { useLongPressPreview } from './useLongPressPreview';
+import { useHoverCardPreview } from './useHoverCardPreview';
 
 interface Props {
     state: TableView;
@@ -13,8 +16,9 @@ interface Props {
 
 export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, setUseLibrarian }: Props) {
     const { draft } = state;
-    const [preview, setPreview] = useState<Card | null>(null);
+    const hoverPreview = useHoverCardPreview();
     const [zoom, setZoom] = useState<Card | null>(null);
+    const longPress = useLongPressPreview(setZoom);
     const [now, setNow] = useState(Date.now());
     const pack = draft?.pack ?? null;
     const selected = pack ? selectedIds.filter((id) => pack.some((card) => card.id === id)) : [];
@@ -113,7 +117,10 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                                 title={c.name}
                                 draggable={false}
                                 className={selected.includes(c.id) ? 'card selected' : 'card'}
-                                onClick={() => selectCard(c.id)}
+                                onMouseEnter={() => hoverPreview.show(c)}
+                                onMouseLeave={hoverPreview.hide}
+                                {...longPress.bind(c)}
+                                onClick={() => { if (!longPress.consumeClick()) selectCard(c.id); }}
                             />
                         ))}
                     </div>
@@ -147,6 +154,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                     {controls('')}
                 </div>
             )}
+            {hoverPreview.preview && <CardPreview card={hoverPreview.preview} className="preview" onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
 
             <aside className="pool">
@@ -154,12 +162,11 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                 {hasLibrarian && <span className="muted">Cogwork Librarian available: draft an extra card from a pack.</span>}
                 <ul>
                     {state.picks.map((c) => (
-                        <li key={c.id} onMouseEnter={() => setPreview(c)} onMouseLeave={() => setPreview(null)}>
+                        <li key={c.id} onMouseEnter={() => hoverPreview.show(c)} onMouseLeave={hoverPreview.hide} {...longPress.bind(c)} onClick={() => longPress.consumeClick()}>
                             {c.name}
                         </li>
                     ))}
                 </ul>
-                {preview && <img className="preview" src={preview.image} alt={preview.name} />}
             </aside>
         </div>
     );

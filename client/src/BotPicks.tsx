@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import type { Card, TableView } from '../../shared/protocol';
 import { copyText } from './clipboard';
+import { CardPreview } from './CardPreview';
+import { ZoomOverlay } from './ZoomOverlay';
+import { useLongPressPreview } from './useLongPressPreview';
+import { useHoverCardPreview } from './useHoverCardPreview';
 
 export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
     const [selectedId, setSelectedId] = useState(bots[0]?.id);
-    const [preview, setPreview] = useState<Card | null>(null);
+    const hoverPreview = useHoverCardPreview();
+    const [zoom, setZoom] = useState<Card | null>(null);
+    const longPress = useLongPressPreview(setZoom);
     const [copied, setCopied] = useState(false);
     const bot = bots.find((b) => b.id === selectedId) ?? bots[0];
     if (!bot) return null;
@@ -36,12 +42,15 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
                         src={c.image}
                         alt={c.name}
                         className="bot-card"
-                        onMouseEnter={() => setPreview(c)}
-                        onMouseLeave={() => setPreview(null)}
+                        onMouseEnter={() => hoverPreview.show(c)}
+                        onMouseLeave={hoverPreview.hide}
+                        {...longPress.bind(c)}
+                        onClick={() => longPress.consumeClick()}
                     />
                 ))}
             </div>
-            {preview && <img className="deck-preview" src={preview.image} alt={preview.name} />}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
         </section>
     );
 }

@@ -298,6 +298,7 @@ async function scryfallLookup(
                 id: '',
                 name: c.name,
                 image,
+                ...(c.card_faces?.[1]?.image_uris?.normal ? { backImage: c.card_faces[1].image_uris.normal } : {}),
                 ...meta,
                 power: 0.5,
                 rank: typeof c.edhrec_rank === 'number' ? c.edhrec_rank : undefined,

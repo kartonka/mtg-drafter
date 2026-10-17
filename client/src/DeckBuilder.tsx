@@ -4,6 +4,9 @@ import { copyText } from './clipboard';
 import { exportProxyPdf } from './proxyPdf';
 import { useCoarsePointer } from './useCoarsePointer';
 import { ZoomOverlay } from './ZoomOverlay';
+import { CardPreview } from './CardPreview';
+import { useLongPressPreview } from './useLongPressPreview';
+import { useHoverCardPreview } from './useHoverCardPreview';
 
 type GroupMode = 'cmc' | 'color' | 'type';
 
@@ -80,7 +83,7 @@ interface Props {
 export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, persistLocal = true, onSave }: Props) {
     const [raw, setRaw] = useState(() => initialLayout ?? readLayout(storageKey));
     const lastSaved = useRef('');
-    const [preview, setPreview] = useState<Card | null>(null);
+    const hoverPreview = useHoverCardPreview();
     const [copied, setCopied] = useState('');
     const [exporting, setExporting] = useState(false);
     const [dragId, setDragId] = useState<string | null>(null);
@@ -88,6 +91,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     const touch = useCoarsePointer();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [zoom, setZoom] = useState<Card | null>(null);
+    const longPress = useLongPressPreview(setZoom);
 
     const cardOf = useMemo(() => {
         const picked = new Map(picks.map((c) => [c.id, c]));
@@ -142,7 +146,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     };
 
     const clickCard = (id: string) => {
-        setPreview(null);
+        hoverPreview.clear();
         if (touch) return setSelectedId(selectedId === id ? null : id);
         if (layout.pool.includes(id)) {
             const columns = layout.columns.map((col) => [...col]);
@@ -214,7 +218,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', id);
                     setDragId(id);
-                    setPreview(null);
+                    hoverPreview.clear();
                 },
                 onDragEnd: () => {
                     setDragId(null);
@@ -280,7 +284,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                             <button onClick={() => removeBasic(b.name)} disabled={basicCount(b.name) === 0}>
                                 −
                             </button>
-                            <span onMouseEnter={() => setPreview(b)} onMouseLeave={() => setPreview(null)}>
+                            <span onMouseEnter={() => hoverPreview.show(b)} onMouseLeave={hoverPreview.hide}>
                                 {b.name} {basicCount(b.name)}
                             </span>
                             <button onClick={() => addBasic(b.name)}>+</button>
@@ -317,9 +321,10 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                                         src={c.image}
                                         alt={c.name}
                                         className={id === selected ? 'stack-card selected' : 'stack-card'}
-                                        onClick={() => clickCard(id)}
-                                        onMouseEnter={() => setPreview(c)}
-                                        onMouseLeave={() => setPreview(null)}
+                                        onMouseEnter={() => hoverPreview.show(c)}
+                                        onMouseLeave={hoverPreview.hide}
+                                        {...longPress.bind(c)}
+                                        onClick={() => { if (!longPress.consumeClick()) clickCard(id); }}
                                         {...dragProps(id)}
                                     />
                                 );
@@ -344,15 +349,16 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                         src={c.image}
                         alt={c.name}
                         className={c.id === selected ? 'pool-card selected' : 'pool-card'}
-                        onClick={() => clickCard(c.id)}
-                        onMouseEnter={() => setPreview(c)}
-                        onMouseLeave={() => setPreview(null)}
+                        onClick={() => { if (!longPress.consumeClick()) clickCard(c.id); }}
+                        onMouseEnter={() => hoverPreview.show(c)}
+                        onMouseLeave={hoverPreview.hide}
+                        {...longPress.bind(c)}
                         {...dragProps(c.id)}
                     />
                 ))}
             </div>
 
-            {preview && <img className="deck-preview" src={preview.image} alt={preview.name} />}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
 
             {touch && selected && (
                 <>
