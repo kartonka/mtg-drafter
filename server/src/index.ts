@@ -230,6 +230,9 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             archiveDraftReview(table.reviewView());
             archivedInProcess.add(table.id);
             break;
+        case 'showBooster':
+            send(ws, { t: 'booster', source: msg.source, cards: table.showBooster(conn.playerId, msg.source) });
+            return;
         case 'pick':
             {
                 // Accept the old single-card shape from already-open browser tabs.

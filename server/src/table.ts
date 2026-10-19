@@ -165,6 +165,10 @@ export class Table {
     pick(playerId: string, cardIds: string[], additionalCardId?: string) {
         if (this.phase !== 'drafting' || !this.draft) throw new GameError('No draft in progress.');
         const seat = this.players.findIndex((p) => p.id === playerId);
+        const pack = seat >= 0 ? this.draft.currentPack(seat) : null;
+        // A timer or a simultaneous update may have already advanced this player's pack.
+        // Late submissions from the old pack are no-ops, not actionable errors.
+        if (!pack || cardIds.some((id) => !pack.some((card) => card.id === id)) || (additionalCardId && !pack.some((card) => card.id === additionalCardId))) return;
         if (seat < 0 || !this.draft.pick(seat, cardIds.map(String), additionalCardId === undefined ? undefined : String(additionalCardId))) {
             throw new GameError('That pick is not available.');
         }
@@ -177,10 +181,12 @@ export class Table {
         if (this.phase !== 'drafting' || !this.draft) throw new GameError('No draft in progress.');
         const seat = this.players.findIndex((player) => player.id === playerId);
         const pack = seat >= 0 ? this.draft.currentPack(seat) : null;
-        if (!pack) throw new GameError('That pick is no longer available.');
+        if (!pack) return;
         const required = Math.min(this.settings.pickCount, pack.length);
         const ids = cardIds.map(String);
-        if (ids.length > required || new Set(ids).size !== ids.length || ids.some((id) => !pack.some((card) => card.id === id))) {
+        if (ids.some((id) => !pack.some((card) => card.id === id))) return;
+        if (additionalCardId !== undefined && !pack.some((card) => card.id === String(additionalCardId))) return;
+        if (ids.length > required || new Set(ids).size !== ids.length) {
             throw new GameError('That selection is no longer available.');
         }
         const extra = additionalCardId === undefined ? undefined : String(additionalCardId);
@@ -249,6 +255,25 @@ export class Table {
         }
         if ([...drafted].some((id) => !ids.includes(id))) throw new GameError('The saved layout must include all drafted cards.');
         this.builtDecks.set(playerId, { columns, pool, ...(companion ? { companion } : {}) });
+    }
+
+    showBooster(playerId: string, source: 'remaining' | 'cube'): Card[] {
+        if (!this.draft) throw new GameError('Start drafting before opening a booster.');
+        const seat = this.players.findIndex((player) => player.id === playerId && !player.isBot);
+        if (seat < 0 || !this.draft.picks[seat].some((card) => card.name.toLocaleLowerCase() === 'booster tutor')) {
+            throw new GameError('Booster Tutor must be in your card pool to use this.');
+        }
+        const cards = source === 'remaining'
+            ? this.cube.cards.filter((card) => !this.players.some((player, index) =>
+                !player.isBot && this.draft!.picks[index].some((picked) => picked.id === card.id)))
+            : this.cube.cards;
+        if (cards.length < 15) throw new GameError(`Only ${cards.length} cards are available for this booster.`);
+        const pack = [...cards];
+        for (let i = 0; i < 15; i++) {
+            const j = i + Math.floor(Math.random() * (pack.length - i));
+            [pack[i], pack[j]] = [pack[j], pack[i]];
+        }
+        return pack.slice(0, 15);
     }
 
     player(id: string) {

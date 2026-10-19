@@ -21,6 +21,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
     const [zoom, setZoom] = useState<Card | null>(null);
     const longPress = useLongPressPreview(setZoom);
     const [now, setNow] = useState(Date.now());
+    const [pendingPack, setPendingPack] = useState<{ key: string; cards: Card[] } | null>(null);
     const pack = draft?.pack ?? null;
     const selected = pack ? selectedIds.filter((id) => pack.some((card) => card.id === id)) : [];
     const basePickCount = Math.min(state.settings.pickCount, pack?.length ?? 0);
@@ -30,6 +31,12 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
     const lastSelected = pack?.find((c) => c.id === selected[selected.length - 1]) ?? null;
     const secondsLeft = draft?.pickDeadline ? Math.max(0, Math.ceil((draft.pickDeadline - now) / 1000)) : null;
     const packKey = pack?.map((card) => card.id).join(',') ?? '';
+    const waitingForNext = !!pendingPack && (!pack || packKey === pendingPack.key);
+    const shownPack = waitingForNext ? pendingPack!.cards : pack;
+
+    useEffect(() => {
+        if (pendingPack && pack && packKey !== pendingPack.key) setPendingPack(null);
+    }, [pendingPack, pack, packKey]);
 
     const confirm = () => {
         if (selected.length !== requiredPickCount) return;
@@ -38,6 +45,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
             cardIds: selected.slice(0, basePickCount),
             ...(useLibrarian ? { additionalCardId: selected[basePickCount] } : {}),
         });
+        setPendingPack({ key: packKey, cards: pack!.filter((card) => !selected.includes(card.id)) });
         setSelectedIds([]);
         setUseLibrarian(false);
     };
@@ -56,11 +64,11 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
     }, [draft?.pickDeadline, draft?.round, draft?.pickNumber]);
 
     useEffect(() => {
-        if (!pack) return;
+        if (!pack || waitingForNext) return;
         const cardIds = selected.slice(0, basePickCount);
         const additionalCardId = useLibrarian && selected.length === requiredPickCount ? selected[basePickCount] : undefined;
         send({ t: 'reservePick', cardIds, ...(additionalCardId ? { additionalCardId } : {}) });
-    }, [selectedIds, useLibrarian, packKey, basePickCount, requiredPickCount, send]);
+    }, [selectedIds, useLibrarian, packKey, basePickCount, requiredPickCount, send, waitingForNext]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -105,12 +113,12 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                     </strong>
                     {pack && secondsLeft !== null && <span className={secondsLeft <= 10 ? 'pick-timer urgent' : 'pick-timer'}>Time {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}</span>}
                     <span className="muted">Passing {draft.direction === 1 ? 'left' : 'right'} to {next?.name}</span>
-                    {pack && controls('desktop-only')}
+                    {pack && !waitingForNext && controls('desktop-only')}
                 </div>
 
-                {pack ? (
-                    <div className="grid">
-                        {pack.map((c) => (
+                {shownPack ? (
+                    <div className={waitingForNext ? 'grid pack-waiting' : 'grid'}>
+                        {shownPack.map((c) => (
                             <div className="searchable-card" key={c.id}>
                                 <img
                                     src={c.image}
@@ -121,15 +129,16 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                                     onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
                                     onMouseLeave={hoverPreview.hide}
                                     {...longPress.bind(c)}
-                                    onClick={() => { if (!longPress.consumeClick()) selectCard(c.id); }}
+                                    onClick={() => { if (!longPress.consumeClick() && !waitingForNext) selectCard(c.id); }}
                                 />
                                 <span className="card-search-text" aria-hidden="true">{c.name}</span>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <p className="waiting">Waiting for the next pack…</p>
+                    <p className="waiting"><span className="spinner" aria-hidden="true" /> Waiting for the next pack…</p>
                 )}
+                {waitingForNext && <div className="pack-waiting-indicator" role="status"><span className="spinner" aria-hidden="true" /> Waiting for the next booster…</div>}
 
                 <ul className="seats">
                     {state.players.map((p) => (
@@ -146,7 +155,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                 </ul>
             </section>
 
-            {pack && (
+            {pack && !waitingForNext && (
                 <div className="action-bar mobile-only">
                     <span className="muted">
                         {selected.length ? pack.filter((c) => selected.includes(c.id)).map((c) => c.name).join(', ') : 'Tap a card to select it'}

@@ -139,10 +139,12 @@ export type ClientMsg =
     | { t: 'pick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'reservePick'; cardIds: string[]; additionalCardId?: string }
     | { t: 'saveDeck'; deck: DeckLayout }
+    | { t: 'showBooster'; source: 'remaining' | 'cube' }
     | { t: 'leave' };
 
 export type ServerMsg =
     | { t: 'session'; tableId: string; token: string; playerId: string }
     | { t: 'state'; state: TableView }
     | { t: 'review'; review: DraftReviewView }
+    | { t: 'booster'; source: 'remaining' | 'cube'; cards: Card[] }
     | { t: 'error'; message: string; code?: 'NO_TABLE' };

@@ -9,7 +9,7 @@ import { PlaylistPlayer } from './PlaylistPlayer';
 import { hashCode, useGame } from './useGame';
 
 export function App() {
-    const { state, review, error, connected, busy, send, clearReview } = useGame();
+    const { state, review, booster, setBooster, error, connected, busy, send, clearReview } = useGame();
     const [view, setView] = useState<'draft' | 'deck'>('draft');
     const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
     const [useLibrarian, setUseLibrarian] = useState(false);
@@ -61,7 +61,7 @@ export function App() {
                                 setUseLibrarian={setUseLibrarian}
                             />
                         ) : (
-                            <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done={false} />
+                            <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} done={false} onShowBooster={(source) => send({ t: 'showBooster', source })} booster={booster} onCloseBooster={() => setBooster(null)} />
                         )}
                     </>
                 )}
@@ -71,7 +71,7 @@ export function App() {
                             <button className={view === 'deck' ? 'active' : ''} onClick={() => setView('deck')}>Deck</button>
                             <button onClick={() => send({ t: 'review', tableId: state.id })}>Review draft</button>
                         </nav>
-                        <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} onSave={saveDeck} done />
+                        <DeckBuilder picks={state.picks} basics={state.basics} storageKey={deckKey} onSave={saveDeck} done onShowBooster={(source) => send({ t: 'showBooster', source })} booster={booster} onCloseBooster={() => setBooster(null)} />
                         {state.botPicks.length > 0 && <BotPicks bots={state.botPicks} />}
                     </>
                 )}

@@ -79,9 +79,12 @@ interface Props {
     initialLayout?: DeckLayout;
     persistLocal?: boolean;
     onSave?: (layout: DeckLayout) => void;
+    onShowBooster?: (source: 'remaining' | 'cube') => void;
+    booster?: { source: 'remaining' | 'cube'; cards: Card[] } | null;
+    onCloseBooster?: () => void;
 }
 
-export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, persistLocal = true, onSave }: Props) {
+export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, persistLocal = true, onSave, onShowBooster, booster, onCloseBooster }: Props) {
     const [raw, setRaw] = useState(() => initialLayout ?? readLayout(storageKey));
     const lastSaved = useRef('');
     const hoverPreview = useHoverCardPreview();
@@ -369,6 +372,10 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
 
             <div className="section-header">
                 <h3>Pool ({poolCards.length})</h3>
+                {picks.some((card) => card.name.toLocaleLowerCase() === 'booster tutor') && onShowBooster && <>
+                    <button onClick={() => onShowBooster('remaining')}>Show booster from remaining pool</button>
+                    <button onClick={() => onShowBooster('cube')}>Show random cube booster</button>
+                </>}
                 <button onClick={() => copy('all', picks)} disabled={picks.length === 0}>
                     {copied === 'all' ? 'Copied!' : 'Copy all picks'}
                 </button>
@@ -391,6 +398,21 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                     </div>
                 ))}
             </div>
+
+            {booster && <div className="booster-overlay" role="dialog" aria-modal="true" aria-label="Booster pack">
+                <section className="booster-dialog">
+                    <div className="section-header">
+                        <h3>{booster.source === 'remaining' ? 'Booster from remaining pool' : 'Random cube booster'}</h3>
+                        <button onClick={onCloseBooster}>Close</button>
+                    </div>
+                    <div className="booster-grid">
+                        {booster.cards.map((card) => <div className="searchable-card" key={card.id}>
+                            <img src={card.image} alt={card.name} title={card.name} onClick={() => setZoom(card)} />
+                            <span className="card-search-text" aria-hidden="true">{card.name}</span>
+                        </div>)}
+                    </div>
+                </section>
+            </div>}
 
             {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
 

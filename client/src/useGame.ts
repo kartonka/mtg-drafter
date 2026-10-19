@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ClientMsg, DraftReviewView, ServerMsg, TableView } from '../../shared/protocol';
+import type { Card, ClientMsg, DraftReviewView, ServerMsg, TableView } from '../../shared/protocol';
 
 const STORAGE_KEY = 'mtg-drafter-session';
 
@@ -25,6 +25,7 @@ export const hashCode = () => hashReviewCode() ? '' : location.hash.slice(1).toU
 export function useGame() {
     const [state, setState] = useState<TableView | null>(null);
     const [review, setReview] = useState<DraftReviewView | null>(null);
+    const [booster, setBooster] = useState<{ source: 'remaining' | 'cube'; cards: Card[] } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -68,6 +69,8 @@ export function useGame() {
                     setReview(msg.review);
                     setError(null);
                     setBusy(false);
+                } else if (msg.t === 'booster') {
+                    setBooster(msg);
                 } else {
                     setBusy(false);
                     if (msg.code === 'NO_TABLE') {
@@ -142,5 +145,5 @@ export function useGame() {
         history.replaceState(null, '', state ? `#${state.id}` : `${location.pathname}${location.search}`);
     }, [state]);
 
-    return { state, review, error, connected, busy, send, clearReview, clearError: () => setError(null) };
+    return { state, review, booster, setBooster, error, connected, busy, send, clearReview, clearError: () => setError(null) };
 }
