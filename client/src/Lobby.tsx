@@ -57,6 +57,11 @@ export function Lobby({ state, send }: Props) {
                             Add bot
                         </button>
                     )}
+                    {isHost && (
+                        <button onClick={() => send({ t: 'fillBots' })} disabled={state.players.length >= LIMITS.maxPlayers && state.players.every((p) => p.isBot)}>
+                            Fill 8 seats with bots
+                        </button>
+                    )}
                 </div>
                 <p className="muted">
                     {state.cube.name} · {state.cube.size} cards

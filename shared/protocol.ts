@@ -130,6 +130,7 @@ export type ClientMsg =
     | { t: 'review'; tableId: string }
     | { t: 'ready'; ready: boolean }
     | { t: 'addBot' }
+    | { t: 'fillBots' }
     | { t: 'reorder'; playerIds: string[] }
     /** Lobby: removes the player. Drafting: hands the seat to a bot. */
     | { t: 'kick'; playerId: string }

@@ -201,6 +201,9 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
         case 'addBot':
             table.addBot(conn.playerId);
             break;
+        case 'fillBots':
+            table.fillWithBots(conn.playerId);
+            break;
         case 'reorder':
             table.reorderPlayers(conn.playerId, msg.playerIds);
             break;

@@ -71,6 +71,30 @@ export class Table {
         });
     }
 
+    fillWithBots(byId: string) {
+        this.requireHost(byId);
+        this.requireLobby();
+        const humans = this.players.filter((player) => !player.isBot);
+        const bots = this.players.filter((player) => player.isBot);
+        while (humans.length + bots.length < LIMITS.maxPlayers) {
+            bots.push({
+                id: randomUUID(),
+                token: '',
+                name: `Bot ${++this.botCount}`,
+                isBot: true,
+                ready: true,
+                ws: null,
+            });
+        }
+
+        const seats: Player[] = Array(LIMITS.maxPlayers);
+        humans.forEach((player, index) => {
+            seats[Math.floor((index + 0.5) * LIMITS.maxPlayers / humans.length)] = player;
+        });
+        let botIndex = 0;
+        this.players = seats.map((player) => player ?? bots[botIndex++]);
+    }
+
     reorderPlayers(byId: string, playerIds: unknown) {
         this.requireHost(byId);
         this.requireLobby();
