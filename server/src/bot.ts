@@ -28,6 +28,7 @@ const CUBE_TOP_50 = [
     'Mox Pearl',
     'Mox Jet',
     'Mox Emerald',
+    'Mana Crypt',
     'Tolarian Academy',
     // 11–20
     'Forth Eorlingas!',
@@ -53,7 +54,6 @@ const CUBE_TOP_50 = [
     'Guide of Souls',
     // 31–40
     'Phlage, Titan of Fire\'s Fury',
-    'Mana Crypt',
     'Dismember',
     'Demonic Tutor',
     'Walking Ballista',
@@ -185,11 +185,12 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         const fit = colorFit(colors);
         const base = card.power * (1 - commitment * (1 - fit));
         const rank = TOP_50_RANK.get(normalizeName(card.name));
-        // Strongly distinguish the top ten, then taper the premium by tier so
-        // the list guides early picks without overriding established deck fit.
+        // The Power 10 are premium picks regardless of the bot's current
+        // colors. Give them enough weight to beat ordinary playables reliably;
+        // lower tiers still taper with draft commitment.
         const premiumBonus = rank
             ? (rank <= 10
-                ? 0.62 + (10 - rank) * 0.065
+                ? 1.4 + (10 - rank) * 0.08
                 : rank <= 20
                     ? 0.20 + (20 - rank) * 0.018
                     : 0.08 + (50 - rank) * 0.003)
