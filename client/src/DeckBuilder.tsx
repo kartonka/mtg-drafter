@@ -109,7 +109,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
         const seen = new Set<string>();
         const keep = (id: string) => !!cardOf(id) && !seen.has(id) && !!seen.add(id);
         const eligible = picks.find(isCompanion);
-        const companion = eligible && (raw.companion === eligible.id || !raw.pool.includes(eligible.id)) ? eligible.id : undefined;
+        const companion = eligible && raw.companion === eligible.id ? eligible.id : undefined;
         if (eligible) seen.add(eligible.id);
         const columns = raw.columns.map((col) => col.filter((id) => id !== eligible?.id && keep(id))).filter((col) => col.length > 0);
         const pool = raw.pool.filter((id) => id !== eligible?.id && keep(id));
