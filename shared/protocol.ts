@@ -82,6 +82,8 @@ export interface DraftReviewPlayer {
 export interface DeckLayout {
     columns: string[][];
     pool: string[];
+    /** Drafted companion card kept outside the main deck columns. */
+    companion?: string;
 }
 
 export interface DraftReviewView {

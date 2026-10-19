@@ -13,7 +13,7 @@ type GroupMode = 'cmc' | 'color' | 'type';
 /** Deck columns hold card ids, left to right. Basic lands are deck-only instances with ids like `b:Forest:x7k2`. */
 type Layout = DeckLayout;
 
-type DropTarget = { kind: 'column'; index: number } | { kind: 'gap'; index: number } | { kind: 'pool' };
+type DropTarget = { kind: 'column'; index: number } | { kind: 'gap'; index: number } | { kind: 'pool' } | { kind: 'companion' };
 
 const CMC_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7+', 'Lands'];
 const COLOR_ORDER = ['White', 'Blue', 'Black', 'Red', 'Green', 'Multicolor', 'Colorless', 'Lands'];
@@ -21,6 +21,7 @@ const TYPE_ORDER = ['Creatures', 'Instants', 'Sorceries', 'Enchantments', 'Artif
 const COLOR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
 
 const isBasic = (id: string) => id.startsWith('b:');
+const isCompanion = (card: Card | undefined) => /\bcompanion\b/i.test(card?.oracleText ?? '');
 const byCmcThenName = (a: Card, b: Card) => a.cmc - b.cmc || a.name.localeCompare(b.name);
 const byName = (a: Card, b: Card) => a.name.localeCompare(b.name);
 
@@ -107,10 +108,14 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     const layout = useMemo<Layout>(() => {
         const seen = new Set<string>();
         const keep = (id: string) => !!cardOf(id) && !seen.has(id) && !!seen.add(id);
-        const columns = raw.columns.map((col) => col.filter(keep)).filter((col) => col.length > 0);
-        const pool = raw.pool.filter(keep);
+        const eligible = picks.find(isCompanion);
+        const companion = eligible && (raw.companion === eligible.id || !raw.pool.includes(eligible.id)) ? eligible.id : undefined;
+        if (eligible) seen.add(eligible.id);
+        const columns = raw.columns.map((col) => col.filter((id) => id !== eligible?.id && keep(id))).filter((col) => col.length > 0);
+        const pool = raw.pool.filter((id) => id !== eligible?.id && keep(id));
         for (const c of picks.filter((c) => !seen.has(c.id)).sort(byCmcThenName)) autoPlace(columns, c.id, cardOf);
-        return { columns, pool };
+        if (eligible && !companion) pool.push(eligible.id);
+        return { columns, pool, ...(companion ? { companion } : {}) };
     }, [raw, picks, cardOf]);
 
     const deckCards = layout.columns.flat().map((id) => cardOf(id)!);
@@ -133,8 +138,21 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     }, [done, layout, onSave]);
 
     const moveTo = (id: string, target: DropTarget) => {
+        if (isCompanion(cardOf(id)) && target.kind !== 'pool' && target.kind !== 'companion') {
+            return moveTo(id, { kind: 'companion' });
+        }
+        if (target.kind === 'companion') {
+            if (!isCompanion(cardOf(id))) return;
+            const pool = layout.pool.filter((x) => x !== id);
+            const columns = layout.columns.map((col) => col.filter((x) => x !== id));
+            const displaced = layout.companion && layout.companion !== id ? layout.companion : undefined;
+            if (displaced) pool.push(displaced);
+            commit({ columns, pool, companion: id });
+            return;
+        }
         const columns = layout.columns.map((col) => col.filter((x) => x !== id));
         const pool = layout.pool.filter((x) => x !== id);
+        const companion = layout.companion === id ? undefined : layout.companion;
         if (target.kind === 'pool') {
             if (!isBasic(id)) pool.push(id);
         } else if (target.kind === 'column') {
@@ -142,16 +160,17 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
         } else {
             columns.splice(target.index, 0, [id]);
         }
-        commit({ columns: columns.filter((col) => col.length > 0), pool });
+        commit({ columns: columns.filter((col) => col.length > 0), pool, ...(companion ? { companion } : {}) });
     };
 
     const clickCard = (id: string) => {
         hoverPreview.clear();
         if (touch) return setSelectedId(selectedId === id ? null : id);
         if (layout.pool.includes(id)) {
+            if (isCompanion(cardOf(id))) return moveTo(id, { kind: 'companion' });
             const columns = layout.columns.map((col) => [...col]);
             autoPlace(columns, id, cardOf);
-            commit({ columns, pool: layout.pool.filter((x) => x !== id) });
+            commit({ columns, pool: layout.pool.filter((x) => x !== id), ...(layout.companion ? { companion: layout.companion } : {}) });
         } else {
             moveTo(id, { kind: 'pool' });
         }
@@ -170,20 +189,21 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     };
     const selectedToDeck = () => {
         if (!selected) return;
+        if (isCompanion(cardOf(selected))) return moveTo(selected, { kind: 'companion' });
         const columns = layout.columns.map((col) => [...col]);
         autoPlace(columns, selected, cardOf);
-        commit({ columns, pool: layout.pool.filter((x) => x !== selected) });
+        commit({ columns, pool: layout.pool.filter((x) => x !== selected), ...(layout.companion ? { companion: layout.companion } : {}) });
     };
 
     const arrange = (mode: GroupMode) =>
-        commit({ columns: group(deckCards, mode).map((g) => g.map((c) => c.id)), pool: layout.pool });
+        commit({ columns: group(deckCards, mode).map((g) => g.map((c) => c.id)), pool: layout.pool, ...(layout.companion ? { companion: layout.companion } : {}) });
 
     const basicCount = (name: string) => deckCards.filter((c) => isBasic(c.id) && c.name === name).length;
     const addBasic = (name: string) => {
         const id = `b:${name}:${Math.random().toString(36).slice(2, 8)}`;
         const columns = layout.columns.map((col) => [...col]);
         autoPlace(columns, id, cardOf);
-        commit({ columns, pool: layout.pool });
+        commit({ columns, pool: layout.pool, ...(layout.companion ? { companion: layout.companion } : {}) });
     };
     const removeBasic = (name: string) => {
         const id = [...deckCards].reverse().find((c) => isBasic(c.id) && c.name === name)?.id;
@@ -304,6 +324,20 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
             )}
 
             <div className="columns-row">
+                {picks.some(isCompanion) && (
+                    <div className="column-with-gap companion-column">
+                        <div className={cls('stack companion-stack', 'companion')} {...zone('companion', { kind: 'companion' })}>
+                            <h4>Companion <span className="column-count">{layout.companion ? 1 : 0}</span></h4>
+                            {layout.companion ? (() => {
+                                const c = cardOf(layout.companion)!;
+                                return <div className="searchable-card stack-card-wrap" key={c.id}>
+                                    <img src={c.image} alt={c.name} className={c.id === selected ? 'stack-card selected' : 'stack-card'} onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)} onMouseLeave={hoverPreview.hide} {...longPress.bind(c)} onClick={() => { if (!longPress.consumeClick()) clickCard(c.id); }} {...dragProps(c.id)} />
+                                    <span className="card-search-text" aria-hidden="true">{c.name}</span>
+                                </div>;
+                            })() : <span className="muted">Drop the companion card here</span>}
+                        </div>
+                    </div>
+                )}
                 {layout.columns.length === 0 && (
                     <div className={cls('empty-deck', 'gap0')} {...zone('gap0', { kind: 'gap', index: 0 })}>
                         Drop cards here to add them to the deck
@@ -313,6 +347,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                     <div key={i} className="column-with-gap">
                         {gap(i)}
                         <div className={cls('stack', `col${i}`)} {...zone(`col${i}`, { kind: 'column', index: i })}>
+                            <h4 className="deck-column-heading">{col.length} <span className="muted">{col.length === 1 ? 'card' : 'cards'}</span></h4>
                             {col.map((id) => {
                                 const c = cardOf(id)!;
                                 return (
@@ -383,9 +418,11 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                                 <button onClick={() => moveTo(selected, { kind: 'pool' })}>{isBasic(selected) ? 'Remove' : 'To pool'}</button>
                             </>
                         ) : (
-                            <button className="primary" onClick={selectedToDeck}>
-                                To deck
-                            </button>
+                            <>
+                                {layout.companion === selected && <button onClick={() => moveTo(selected, { kind: 'pool' })}>To pool</button>}
+                                {isCompanion(cardOf(selected)) && layout.companion !== selected && <button onClick={() => moveTo(selected, { kind: 'companion' })}>Companion</button>}
+                                {layout.companion !== selected && !isCompanion(cardOf(selected)) && <button className="primary" onClick={selectedToDeck}>To deck</button>}
+                            </>
                         )}
                         <button onClick={() => setZoom(cardOf(selected)!)}>Zoom</button>
                         <button className="link" onClick={() => setSelectedId(null)}>

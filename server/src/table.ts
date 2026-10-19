@@ -206,9 +206,18 @@ export class Table {
         });
         const pool = [...deck.pool];
         if (pool.some((id) => typeof id !== 'string')) throw new GameError('That deck layout is invalid.');
-        const ids = [...columns.flat(), ...pool];
+        const companion = typeof deck.companion === 'string' ? deck.companion : undefined;
+        const ids = [...columns.flat(), ...pool, ...(companion ? [companion] : [])];
         if (ids.length > 2200 || new Set(ids).size !== ids.length) throw new GameError('That deck layout is invalid.');
         const drafted = new Set(this.draft!.picks[seat].map((card) => card.id));
+        if (companion) {
+            const card = this.draft!.picks[seat].find((picked) => picked.id === companion);
+            if (!card || !/\bcompanion\b/i.test(card.oracleText ?? '')) throw new GameError('Only a drafted companion card can use the companion slot.');
+        }
+        const companionPicks = this.draft!.picks[seat].filter((card) => /\bcompanion\b/i.test(card.oracleText ?? ''));
+        if (companionPicks.some((card) => columns.flat().includes(card.id) && card.id !== companion)) {
+            throw new GameError('A companion card must use the companion slot.');
+        }
         const basicPrefixes = this.cube.basics.map((card) => `b:${card.name}:`);
         const isBasicInstance = (id: string) => basicPrefixes.some((prefix) =>
             id.startsWith(prefix) && /^[a-z0-9]{1,6}$/i.test(id.slice(prefix.length))
@@ -217,7 +226,7 @@ export class Table {
             throw new GameError('That deck contains a card you did not draft.');
         }
         if ([...drafted].some((id) => !ids.includes(id))) throw new GameError('The saved layout must include all drafted cards.');
-        this.builtDecks.set(playerId, { columns, pool });
+        this.builtDecks.set(playerId, { columns, pool, ...(companion ? { companion } : {}) });
     }
 
     player(id: string) {
