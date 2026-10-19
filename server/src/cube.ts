@@ -102,7 +102,7 @@ export async function loadSavedCube(name: string): Promise<Cube> {
 }
 
 /** Pulls deck-building metadata out of a Scryfall card object; null if any is missing. */
-function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine' | 'oracleText' | 'backOracleText' | 'keywords'> | null {
+function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine' | 'oracleText' | 'backOracleText' | 'keywords' | 'producedMana'> | null {
     const typeLine = c?.type_line ?? c?.card_faces?.[0]?.type_line;
     const colors = c?.colors ?? c?.card_faces?.[0]?.colors;
     if (typeof c?.cmc !== 'number' || typeof typeLine !== 'string' || !Array.isArray(colors)) return null;
@@ -113,6 +113,9 @@ function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine' | '
         ...(Array.isArray(c?.keywords) ? c.keywords : []),
         ...faces.flatMap((face: any) => Array.isArray(face?.keywords) ? face.keywords : []),
     ].filter((keyword: unknown): keyword is string => typeof keyword === 'string'))];
+    const producedMana = Array.isArray(c?.produced_mana)
+        ? c.produced_mana
+        : faces.flatMap((face: any) => Array.isArray(face?.produced_mana) ? face.produced_mana : []);
     return {
         cmc: c.cmc,
         colors: colors.filter((x: unknown) => typeof x === 'string'),
@@ -121,6 +124,9 @@ function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine' | '
         oracleText,
         ...(backOracleText ? { backOracleText } : {}),
         keywords,
+        ...(producedMana.length
+            ? { producedMana: producedMana.filter((mana: unknown): mana is string => typeof mana === 'string') }
+            : {}),
     };
 }
 const MOXFIELD_URL = /^https?:\/\/(?:www\.)?moxfield\.com\/(cubes|decks)\/([A-Za-z0-9_-]+)/i;

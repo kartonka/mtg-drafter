@@ -8,6 +8,8 @@ export interface Card {
     cmc: number;
     /** Subset of W U B R G. */
     colors: string[];
+    /** Mana types this card can produce, from Scryfall when available. */
+    producedMana?: string[];
     land: boolean;
     /** Scryfall type line, used for deck organization. */
     typeLine?: string;

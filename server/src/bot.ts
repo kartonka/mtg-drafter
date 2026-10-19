@@ -6,8 +6,7 @@ const COMMIT_START = 4;
 const COMMIT_SPAN = 8;
 const CANDIDATES = 3;
 const TEMPERATURE = 0.1;
-const COLORLESS_FIT = 0.7;
-const OFF_COLOR_FIT = 0.25;
+const COLORLESS_FIT = 0.55;
 
 /**
  * Draftsim's top 50 from its Feb 2026 Vintage Cube pick order. Entries can be
@@ -77,6 +76,37 @@ const CUBE_TOP_50 = [
 
 const TOP_50_RANK = new Map(CUBE_TOP_50.map((name, index) => [name, index + 1] as const));
 
+const BASIC_LAND_COLORS: Record<string, string> = {
+    plains: 'W', island: 'U', swamp: 'B', mountain: 'R', forest: 'G',
+};
+
+function manaColors(card: Card): string[] {
+    const known = card.producedMana?.filter((mana) => COLORS.includes(mana)) ?? [];
+    if (known.length) return [...new Set(known)];
+
+    const text = card.oracleText ?? '';
+    const found = new Set<string>();
+    if (/\badd\b[^.\n]*\bany color\b/i.test(text) || /\badd\b[^.\n]*\bone mana of the chosen color\b/i.test(text)) {
+        return [...COLORS];
+    }
+    for (const match of text.matchAll(/\badd\b([^.!?\n]*)/gi)) {
+        for (const symbol of match[1].matchAll(/\{([WUBRG])\}/gi)) found.add(symbol[1].toUpperCase());
+    }
+
+    // Fetch lands produce the colors of the basic land types they can find.
+    if (card.land && /\bsearch your library for\b/i.test(text)) {
+        if (/\bbasic land card\b/i.test(text)) COLORS.forEach((color) => found.add(color));
+        for (const [basic, color] of Object.entries(BASIC_LAND_COLORS)) {
+            if (new RegExp(`\\b${basic}\\b`, 'i').test(text)) found.add(color);
+        }
+    }
+    return [...found];
+}
+
+const isArtifact = (card: Card) => /\bArtifact\b/i.test(card.typeLine ?? '');
+const hasArtifactPayoff = (card: Card) => /\b(?:artifact|improvise|metalcraft|affinity)\b/i.test(card.oracleText ?? '') ||
+    (card.keywords ?? []).some((keyword) => /^(improvise|metalcraft)$/i.test(keyword));
+
 export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card {
     if (strategy === 'random') return pack[Math.floor(Math.random() * pack.length)];
 
@@ -88,18 +118,41 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
     const ranked = COLORS.filter((c) => weight[c] > 0).sort((a, b) => weight[b] - weight[a]);
     const main = new Set(ranked.slice(0, 2));
     const top = weight[ranked[0]] ?? 1;
+    const artifactCount = pool.filter(isArtifact).length;
+    const artifactShare = artifactCount / Math.max(1, pool.length);
+    const artifactPayoffs = pool.filter(hasArtifactPayoff).length;
 
     // Early picks chase raw power; later picks increasingly stay in the main colors.
     const commitment = Math.min(1, Math.max(0, (pool.length - COMMIT_START) / COMMIT_SPAN));
-    const colorFit = (card: Card) => {
-        if (card.colors.length === 0) return COLORLESS_FIT;
-        return Math.min(...card.colors.map((c) => (main.has(c) ? 1 : (OFF_COLOR_FIT * weight[c]) / top)));
+    const colorFit = (colors: string[]) => {
+        if (colors.length === 0) return COLORLESS_FIT;
+        // Gold cards remain plausible when one color is established and the
+        // other is still open; averaging avoids the old all-colors-must-fit trap.
+        return colors.reduce((sum, color) => {
+            if (main.has(color)) return sum + 1;
+            const relativeWeight = Math.min(1, (weight[color] ?? 0) / top);
+            return sum + 0.4 + relativeWeight * 0.25;
+        }, 0) / colors.length;
     };
     const score = (card: Card) => {
-        const base = card.power * (1 - commitment * (1 - colorFit(card)));
+        const mana = card.land ? manaColors(card) : [];
+        const colors = card.land ? mana : card.colors;
+        const fit = colorFit(colors);
+        const base = card.power * (1 - commitment * (1 - fit));
         const rank = TOP_50_RANK.get(normalizeName(card.name));
         const premiumBonus = rank ? 1.05 + (CUBE_TOP_50.length - rank) * 0.02 : 0;
-        return base + premiumBonus;
+        const matchedLandColors = mana.filter((color) => main.has(color)).length;
+        const landFixingBonus = card.land && mana.length > 1
+            ? main.size === 0 ? 0.05 : matchedLandColors > 0 ? 0.08 + (matchedLandColors > 1 ? 0.04 : 0) : 0
+            : card.land && matchedLandColors > 0 ? 0.06 : 0;
+        // Colorless artifacts are useful, but shouldn't remain an effortless
+        // default once the pool is already artifact-heavy. Artifact payoffs
+        // soften the penalty to permit coherent artifact decks.
+        const densityPenalty = Math.min(0.3, Math.max(0, artifactShare - 0.3) * 0.6) * Math.min(1, pool.length / 6);
+        const synergyRelief = Math.max(0.35, 1 - artifactPayoffs * 0.12);
+        const candidateRelief = hasArtifactPayoff(card) ? 0.5 : 1;
+        const artifactBalance = isArtifact(card) ? 1 - densityPenalty * synergyRelief * candidateRelief : 1;
+        return (base + premiumBonus + landFixingBonus) * artifactBalance;
     };
 
     // Choose among the best few, favouring the best, so bots are not predictable.
