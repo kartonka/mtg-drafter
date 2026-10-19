@@ -284,7 +284,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                             <button onClick={() => removeBasic(b.name)} disabled={basicCount(b.name) === 0}>
                                 −
                             </button>
-                            <span onMouseEnter={() => hoverPreview.show(b)} onMouseLeave={hoverPreview.hide}>
+                            <span onMouseEnter={(event) => hoverPreview.show(b, event.clientX, event.clientY)} onMouseLeave={hoverPreview.hide}>
                                 {b.name} {basicCount(b.name)}
                             </span>
                             <button onClick={() => addBasic(b.name)}>+</button>
@@ -321,7 +321,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                                             src={c.image}
                                             alt={c.name}
                                             className={id === selected ? 'stack-card selected' : 'stack-card'}
-                                            onMouseEnter={() => hoverPreview.show(c)}
+                                            onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
                                             onMouseLeave={hoverPreview.hide}
                                             {...longPress.bind(c)}
                                             onClick={() => { if (!longPress.consumeClick()) clickCard(id); }}
@@ -352,7 +352,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                             alt={c.name}
                             className={c.id === selected ? 'pool-card selected' : 'pool-card'}
                             onClick={() => { if (!longPress.consumeClick()) clickCard(c.id); }}
-                            onMouseEnter={() => hoverPreview.show(c)}
+                            onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
                             onMouseLeave={hoverPreview.hide}
                             {...longPress.bind(c)}
                             {...dragProps(c.id)}
@@ -362,7 +362,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                 ))}
             </div>
 
-            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
 
             {touch && selected && (
                 <>

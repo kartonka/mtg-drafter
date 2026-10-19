@@ -42,7 +42,7 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
                             src={c.image}
                             alt={c.name}
                             className="bot-card"
-                            onMouseEnter={() => hoverPreview.show(c)}
+                            onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
                             onMouseLeave={hoverPreview.hide}
                             {...longPress.bind(c)}
                             onClick={() => longPress.consumeClick()}
@@ -51,7 +51,7 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
                     </div>
                 ))}
             </div>
-            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
         </section>
     );

@@ -118,7 +118,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                                     title={c.name}
                                     draggable={false}
                                     className={selected.includes(c.id) ? 'card selected' : 'card'}
-                                    onMouseEnter={() => hoverPreview.show(c)}
+                                    onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
                                     onMouseLeave={hoverPreview.hide}
                                     {...longPress.bind(c)}
                                     onClick={() => { if (!longPress.consumeClick()) selectCard(c.id); }}
@@ -157,7 +157,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                     {controls('')}
                 </div>
             )}
-            {hoverPreview.preview && <CardPreview card={hoverPreview.preview} className="preview" onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {hoverPreview.preview && <CardPreview card={hoverPreview.preview} className="preview" style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
 
             <aside className="pool">
@@ -165,7 +165,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                 {hasLibrarian && <span className="muted">Cogwork Librarian available: draft an extra card from a pack.</span>}
                 <ul>
                     {state.picks.map((c) => (
-                        <li key={c.id} onMouseEnter={() => hoverPreview.show(c)} onMouseLeave={hoverPreview.hide} {...longPress.bind(c)} onClick={() => longPress.consumeClick()}>
+                        <li key={c.id} onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)} onMouseLeave={hoverPreview.hide} {...longPress.bind(c)} onClick={() => longPress.consumeClick()}>
                             {c.name}
                         </li>
                     ))}

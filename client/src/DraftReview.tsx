@@ -63,7 +63,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                                         src={card.image}
                                         alt={card.name}
                                         title={card.name}
-                                        onMouseEnter={() => hoverPreview.show(card)}
+                                        onMouseEnter={(event) => hoverPreview.show(card, event.clientX, event.clientY)}
                                         onMouseLeave={hoverPreview.hide}
                                         {...longPress.bind(card)}
                                         onClick={() => longPress.consumeClick()}
@@ -88,7 +88,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                     done
                 />
             </>}
-            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
+            {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}
         </section>
     );

@@ -2,16 +2,17 @@ import type { Card } from '../../shared/protocol';
 import { backFaceImage } from './cardFaces';
 import { mechanicHelp } from './keywordHelp';
 
-export function CardPreview({ card, className, onMouseEnter, onMouseLeave }: {
+export function CardPreview({ card, className, style, onMouseEnter, onMouseLeave }: {
     card: Card;
     className: string;
+    style?: React.CSSProperties;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
 }) {
     const backImage = backFaceImage(card);
     const help = mechanicHelp(card);
     return (
-        <div className={`${className}${backImage ? ' has-back-face' : ''}${help.length ? ' has-mechanic-help' : ''}`} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+        <div className={`${className}${backImage ? ' has-back-face' : ''}${help.length ? ' has-mechanic-help' : ''}`} style={style} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
             {help.length > 0 && (
                 <aside className="mechanic-help" aria-label={`Mechanic explanations for ${card.name}`}>
                     {help.map((item) => (
