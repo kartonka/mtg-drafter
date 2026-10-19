@@ -297,7 +297,6 @@ export class Table {
             p.ready = true;
             p.token = '';
             p.ws = null;
-            p.name = `${p.name} (bot)`;
         }
         if (this.hostId === targetId) this.hostId = this.players.find((x) => !x.isBot)?.id ?? '';
         if (this.phase === 'drafting') this.advance();

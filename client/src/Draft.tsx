@@ -3,6 +3,7 @@ import type { Card, ClientMsg, TableView } from '../../shared/protocol';
 import { CardPreview } from './CardPreview';
 import { ZoomOverlay } from './ZoomOverlay';
 import { useLongPressPreview } from './useLongPressPreview';
+import { playerLabel } from './playerLabel';
 import { useHoverCardPreview } from './useHoverCardPreview';
 
 interface Props {
@@ -133,7 +134,7 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                 <ul className="seats">
                     {state.players.map((p) => (
                         <li key={p.id} className={p.id === state.you ? 'me' : ''}>
-                            {p.name}
+                            {playerLabel(p.name, p.isBot)}
                             {!p.connected && ' (offline)'} · {p.picks} picked · {p.waitingPacks} waiting
                             {state.you === state.hostId && !p.isBot && !p.connected && (
                                 <button className="link" onClick={() => send({ t: 'kick', playerId: p.id })}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LIMITS, type BotStrategy, type ClientMsg, type TableView } from '../../shared/protocol';
 import { copyText } from './clipboard';
+import { playerLabel } from './playerLabel';
 
 const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
@@ -90,7 +91,7 @@ export function Lobby({ state, send }: Props) {
                             </span>}
                             <span className={p.ready ? 'badge ready' : 'badge'}>{p.ready ? 'Ready' : 'Not ready'}</span>
                             <span className="name">
-                                {p.name}
+                                {playerLabel(p.name, p.isBot)}
                                 {p.id === state.hostId && ' (host)'}
                                 {!p.connected && ' · disconnected'}
                             </span>

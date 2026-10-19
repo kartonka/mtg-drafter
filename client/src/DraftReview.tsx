@@ -6,6 +6,7 @@ import { CardPreview } from './CardPreview';
 import { ZoomOverlay } from './ZoomOverlay';
 import { useLongPressPreview } from './useLongPressPreview';
 import { useHoverCardPreview } from './useHoverCardPreview';
+import { playerLabel } from './playerLabel';
 
 export function DraftReview({ review, onClose }: { review: DraftReviewView; onClose: () => void }) {
     const [playerId, setPlayerId] = useState(review.players[0]?.id ?? '');
@@ -38,7 +39,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                 <label className="field">
                     Player
                     <select value={player?.id ?? ''} onChange={(event) => setPlayerId(event.target.value)}>
-                        {review.players.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}{candidate.isBot ? ' (bot)' : ''}</option>)}
+                        {review.players.map((candidate) => <option key={candidate.id} value={candidate.id}>{playerLabel(candidate.name, candidate.isBot)}</option>)}
                     </select>
                 </label>
                 {player && <button onClick={download}>Download pick log</button>}
