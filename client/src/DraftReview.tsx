@@ -57,7 +57,7 @@ export function DraftReview({ review, onClose }: { review: DraftReviewView; onCl
                             </div>
                             <div className="pick-row-cards">
                                 {entry.pack.map((card) => (
-                                    <div className={card.id === entry.picked.id || entry.alsoPicked?.some((picked) => picked.id === card.id) || card.id === entry.additionalPicked?.id ? 'history-card picked' : 'history-card'} key={card.id}>
+                                    <div className={`searchable-card ${card.id === entry.picked.id || entry.alsoPicked?.some((picked) => picked.id === card.id) || card.id === entry.additionalPicked?.id ? 'history-card picked' : 'history-card'}`} key={card.id}>
                                     <img
                                         src={card.image}
                                         alt={card.name}
