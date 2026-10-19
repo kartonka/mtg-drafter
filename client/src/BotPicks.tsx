@@ -15,7 +15,6 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
     const bot = bots.find((b) => b.id === selectedId) ?? bots[0];
     if (!bot) return null;
 
-    // Picks are appended to the draft pool in the order they were made.
     const cards = bot.picks;
     const copy = async () => {
         await copyText(cards.map((c) => `1 ${c.name}`).join('\n'));
@@ -36,21 +35,25 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
                     </button>
                 ))}
             </nav>
-            <div className="bot-grid">
-                {cards.map((c) => (
-                    <div className="searchable-card bot-card-wrap" key={c.id}>
-                        <img
-                            src={c.image}
-                            alt={c.name}
-                            className="bot-card"
-                            onMouseEnter={(event) => hoverPreview.show(c, event.clientX, event.clientY)}
-                            onMouseLeave={hoverPreview.hide}
-                            {...longPress.bind(c)}
-                            onClick={() => longPress.consumeClick()}
-                        />
-                        <span className="card-search-text" aria-hidden="true">{c.name}</span>
-                    </div>
-                ))}
+            <div className="pick-history">
+                {bot.log.map((entry) => {
+                    const chosen = [entry.picked, ...(entry.alsoPicked ?? []), ...(entry.additionalPicked ? [entry.additionalPicked] : [])];
+                    return <section className="pick-row" key={`${entry.round}-${entry.pick}`}>
+                        <div className="pick-row-label">
+                            <strong>Pick {entry.pick}</strong>
+                            <span>Pack {entry.round}</span>
+                            <span className="picked-name">{chosen.map((card) => card.name).join(' + ')}</span>
+                        </div>
+                        <div className="pick-row-cards">
+                            {entry.pack.map((card) => <div className={`searchable-card ${chosen.some((picked) => picked.id === card.id) ? 'history-card picked' : 'history-card'}`} key={card.id}>
+                                <img src={card.image} alt={card.name} title={card.name}
+                                    onMouseEnter={(event) => hoverPreview.show(card, event.clientX, event.clientY)}
+                                    onMouseLeave={hoverPreview.hide} {...longPress.bind(card)} onClick={() => longPress.consumeClick()} />
+                                <span className="card-search-text" aria-hidden="true">{card.name}</span>
+                            </div>)}
+                        </div>
+                    </section>;
+                })}
             </div>
             {hoverPreview.preview && <CardPreview className="deck-preview" card={hoverPreview.preview} style={{ left: hoverPreview.position.left, top: hoverPreview.position.top, right: 'auto' }} onMouseEnter={hoverPreview.keep} onMouseLeave={hoverPreview.hide} />}
             {zoom && <ZoomOverlay card={zoom} onClose={() => setZoom(null)} />}

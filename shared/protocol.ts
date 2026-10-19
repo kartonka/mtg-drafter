@@ -111,7 +111,7 @@ export interface TableView {
     picks: Card[];
     draftLog: DraftLogEntry[];
     /** Only filled for the host once the draft is done. */
-    botPicks: { id: string; name: string; picks: Card[] }[];
+    botPicks: { id: string; name: string; picks: Card[]; log: DraftLogEntry[] }[];
 }
 
 export const LIMITS = {

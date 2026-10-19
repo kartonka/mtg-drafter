@@ -294,7 +294,7 @@ export class Table {
             draftLog: d && seat >= 0 ? d.logs[seat] : [],
             botPicks:
                 d && this.phase === 'done' && playerId === this.hostId
-                    ? this.players.flatMap((p, i) => (p.isBot ? [{ id: p.id, name: p.name, picks: d.picks[i] }] : []))
+                    ? this.players.flatMap((p, i) => (p.isBot ? [{ id: p.id, name: p.name, picks: d.picks[i], log: d.logs[i] }] : []))
                     : [],
         };
     }
