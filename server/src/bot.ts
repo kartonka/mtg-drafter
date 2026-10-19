@@ -7,6 +7,7 @@ const COMMIT_SPAN = 8;
 const CANDIDATES = 3;
 const TEMPERATURE = 0.1;
 const COLORLESS_FIT = 0.55;
+const DECK_SIZE_TARGET = 23;
 
 /**
  * Draftsim's top 50 from its Feb 2026 Vintage Cube pick order. Entries can be
@@ -107,6 +108,34 @@ const isArtifact = (card: Card) => /\bArtifact\b/i.test(card.typeLine ?? '');
 const hasArtifactPayoff = (card: Card) => /\b(?:artifact|improvise|metalcraft|affinity)\b/i.test(card.oracleText ?? '') ||
     (card.keywords ?? []).some((keyword) => /^(improvise|metalcraft)$/i.test(keyword));
 
+type Theme = 'artifact' | 'graveyard' | 'spells' | 'tokens' | 'counters';
+const THEME_PATTERNS: Record<Theme, RegExp> = {
+    artifact: /\b(?:artifact|improvise|metalcraft|affinity)\b/i,
+    graveyard: /\b(?:graveyard|reanimate|return .*from your graveyard|dies)\b/i,
+    spells: /\b(?:instant|sorcery|noncreature spell|cast .*spell|prowess)\b/i,
+    tokens: /\b(?:token|populate)\b/i,
+    counters: /\b(?:\+1\/\+1 counter|counters on|proliferate)\b/i,
+};
+
+function themes(card: Card): Theme[] {
+    const text = `${card.oracleText ?? ''} ${card.backOracleText ?? ''}`;
+    return (Object.keys(THEME_PATTERNS) as Theme[]).filter((theme) =>
+        THEME_PATTERNS[theme].test(text) || (theme === 'artifact' && isArtifact(card)));
+}
+
+function isCreature(card: Card) {
+    return /\bCreature\b/i.test(card.typeLine ?? '');
+}
+
+function isInteraction(card: Card) {
+    const text = `${card.oracleText ?? ''} ${card.backOracleText ?? ''}`;
+    return /\b(?:destroy|exile|counter target|deals? \d+ damage to|return .* to its owner's hand|each opponent sacrifices)\b/i.test(text);
+}
+
+function isRamp(card: Card) {
+    return manaColors(card).length > 0 && /\b(?:add|search your library for .*land)\b/i.test(card.oracleText ?? '');
+}
+
 export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card {
     if (strategy === 'random') return pack[Math.floor(Math.random() * pack.length)];
 
@@ -121,6 +150,20 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
     const artifactCount = pool.filter(isArtifact).length;
     const artifactShare = artifactCount / Math.max(1, pool.length);
     const artifactPayoffs = pool.filter(hasArtifactPayoff).length;
+
+    // Track the pool's rough deck shape and a few common cube themes. These
+    // deliberately remain broad heuristics: card text is not a rules engine.
+    const countsAtCmc = new Map<number, number>();
+    for (const card of pool) {
+        if (card.land) continue;
+        const cmc = Math.min(5, Math.max(1, Math.ceil(card.cmc)));
+        countsAtCmc.set(cmc, (countsAtCmc.get(cmc) ?? 0) + 1);
+    }
+    const creatureCount = pool.filter(isCreature).length;
+    const interactionCount = pool.filter(isInteraction).length;
+    const rampCount = pool.filter(isRamp).length;
+    const themeCounts = new Map<Theme, number>();
+    for (const card of pool) for (const theme of themes(card)) themeCounts.set(theme, (themeCounts.get(theme) ?? 0) + 1);
 
     // Early picks chase raw power; later picks increasingly stay in the main colors.
     const commitment = Math.min(1, Math.max(0, (pool.length - COMMIT_START) / COMMIT_SPAN));
@@ -140,7 +183,16 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         const fit = colorFit(colors);
         const base = card.power * (1 - commitment * (1 - fit));
         const rank = TOP_50_RANK.get(normalizeName(card.name));
-        const premiumBonus = rank ? 1.05 + (CUBE_TOP_50.length - rank) * 0.02 : 0;
+        // Strongly distinguish the top ten, then taper the premium by tier so
+        // the list guides early picks without overriding established deck fit.
+        const premiumBonus = rank
+            ? (rank <= 10
+                ? 0.38 + (10 - rank) * 0.045
+                : rank <= 20
+                    ? 0.20 + (20 - rank) * 0.018
+                    : 0.08 + (50 - rank) * 0.003)
+                * (1 - commitment * 0.45)
+            : 0;
         const matchedLandColors = mana.filter((color) => main.has(color)).length;
         const landFixingBonus = card.land && mana.length > 1
             ? main.size === 0 ? 0.05 : matchedLandColors > 0 ? 0.08 + (matchedLandColors > 1 ? 0.04 : 0) : 0
@@ -152,7 +204,25 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         const synergyRelief = Math.max(0.35, 1 - artifactPayoffs * 0.12);
         const candidateRelief = hasArtifactPayoff(card) ? 0.5 : 1;
         const artifactBalance = isArtifact(card) ? 1 - densityPenalty * synergyRelief * candidateRelief : 1;
-        return (base + premiumBonus + landFixingBonus) * artifactBalance;
+        const candidateThemes = themes(card);
+        const synergyBonus = candidateThemes.reduce((sum, theme) => {
+            const existing = themeCounts.get(theme) ?? 0;
+            return sum + Math.min(0.12, existing * 0.025);
+        }, 0);
+
+        // Reward a candidate that helps fill the rough curve or a key deck role.
+        const cmc = Math.min(5, Math.max(1, Math.ceil(card.cmc)));
+        const atCmc = countsAtCmc.get(cmc) ?? 0;
+        const curveTarget = cmc <= 2 ? 5 : cmc === 3 ? 4 : cmc === 4 ? 3 : 2;
+        const curveNeed = Math.max(0, curveTarget - atCmc) / curveTarget;
+        const curveBonus = !card.land ? curveNeed * (cmc <= 3 ? 0.09 : 0.05) : 0;
+        const roleBonus = (isInteraction(card) && interactionCount < 4 ? 0.08 : 0) +
+            (isCreature(card) && creatureCount < 12 ? 0.04 : 0) +
+            (isRamp(card) && rampCount < 3 ? 0.05 : 0);
+        const latePoolPenalty = pool.length >= DECK_SIZE_TARGET
+            ? Math.min(0.12, (pool.length - DECK_SIZE_TARGET + 1) * 0.015)
+            : 0;
+        return (base + premiumBonus + landFixingBonus + synergyBonus + curveBonus + roleBonus - latePoolPenalty) * artifactBalance;
     };
 
     // Choose among the best few, favouring the best, so bots are not predictable.
