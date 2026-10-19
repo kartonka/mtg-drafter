@@ -1,5 +1,6 @@
 import type { Card, DraftReviewView } from '../../shared/protocol';
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 export interface Cube {
@@ -24,6 +25,7 @@ const MOXFIELD_UA = process.env.MOXFIELD_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 
 const MAX_CUBE_SIZE = 2000;
 const MAX_CUBE_NAME = 80;
 const CUBE_STORE = path.resolve(import.meta.dirname, '../data/cubes.json');
+const CUBE_CACHE_DIR = path.resolve(import.meta.dirname, '../data/cube-cache');
 const BUNDLED_CUBES = [
     { name: 'imbur', path: path.resolve(import.meta.dirname, '../../default_cubes/imbur.txt') },
     { name: 'marci-cube', path: path.resolve(import.meta.dirname, '../../marci-cube.txt') },
@@ -32,6 +34,10 @@ const BUNDLED_CUBES = [
 interface SavedCubeList { name: string; text: string; updatedAt: string }
 
 const cubeKey = (name: string) => name.trim().toLocaleLowerCase();
+const cubeCachePath = (key: string) => path.join(CUBE_CACHE_DIR, `${createHash('sha256').update(key).digest('hex')}.json`);
+
+// Resolved card data is reused for saved lists until the source text changes.
+const savedCubeCache = new Map<string, { text: string; cube: Promise<Cube> }>();
 
 function readSavedCubeLists(): SavedCubeList[] {
     let saved: SavedCubeList[] = [];
@@ -90,15 +96,50 @@ export function saveCubeList(rawName: unknown, rawText: unknown): { name: string
     const temp = `${CUBE_STORE}.tmp`;
     writeFileSync(temp, JSON.stringify(next, null, 2));
     renameSync(temp, CUBE_STORE);
+    const key = cubeKey(name);
+    savedCubeCache.delete(key);
+    try { unlinkSync(cubeCachePath(key)); } catch { /* Content matching still rejects any stale disk entry. */ }
     return { name, overwritten };
 }
 
 export async function loadSavedCube(name: string): Promise<Cube> {
     const saved = readSavedCubeLists().find((cube) => cubeKey(cube.name) === cubeKey(name));
     if (!saved) throw new CubeError('No saved cube list with that name.');
-    const cube = await loadFromText(saved.text, saved.name);
-    cube.basics = await basicLands();
-    return cube;
+    const key = cubeKey(saved.name);
+    let cached = savedCubeCache.get(key);
+    if (!cached || cached.text !== saved.text) {
+        const promise = (async () => {
+            const cachePath = cubeCachePath(key);
+            try {
+                const disk: unknown = JSON.parse(readFileSync(cachePath, 'utf8'));
+                if (typeof disk === 'object' && disk !== null &&
+                    (disk as any).text === saved.text &&
+                    typeof (disk as any).cube?.name === 'string' &&
+                    Array.isArray((disk as any).cube?.cards) &&
+                    Array.isArray((disk as any).cube?.basics) &&
+                    Array.isArray((disk as any).cube?.warnings)) {
+                    return (disk as any).cube as Cube;
+                }
+            } catch { /* Missing or invalid cache: resolve the list again. */ }
+
+            const cube = await loadFromText(saved.text, saved.name);
+            cube.basics = await basicLands();
+            try {
+                mkdirSync(CUBE_CACHE_DIR, { recursive: true });
+                const temp = `${cachePath}.tmp`;
+                writeFileSync(temp, JSON.stringify({ text: saved.text, cube }));
+                renameSync(temp, cachePath);
+            } catch { /* Draft loading should still work if persistent caching fails. */ }
+            return cube;
+        })();
+        cached = { text: saved.text, cube: promise };
+        savedCubeCache.set(key, cached);
+        promise.catch(() => {
+            if (savedCubeCache.get(key)?.cube === promise) savedCubeCache.delete(key);
+        });
+    }
+    // Drafts get their own copy so changes in one table cannot affect the cache.
+    return JSON.parse(JSON.stringify(await cached.cube)) as Cube;
 }
 
 /** Pulls deck-building metadata out of a Scryfall card object; null if any is missing. */
