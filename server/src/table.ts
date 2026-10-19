@@ -92,7 +92,9 @@ export class Table {
             seats[Math.floor((index + 0.5) * LIMITS.maxPlayers / humans.length)] = player;
         });
         let botIndex = 0;
-        this.players = seats.map((player) => player ?? bots[botIndex++]);
+        // Array#map skips empty slots in a sparse array, leaving undefined seats
+        // when humans are placed into a partially filled table.
+        this.players = Array.from({ length: seats.length }, (_, seat) => seats[seat] ?? bots[botIndex++]);
     }
 
     reorderPlayers(byId: string, playerIds: unknown) {
