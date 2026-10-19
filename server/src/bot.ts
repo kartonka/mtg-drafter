@@ -187,11 +187,11 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         // the list guides early picks without overriding established deck fit.
         const premiumBonus = rank
             ? (rank <= 10
-                ? 0.38 + (10 - rank) * 0.045
+                ? 0.62 + (10 - rank) * 0.065
                 : rank <= 20
                     ? 0.20 + (20 - rank) * 0.018
                     : 0.08 + (50 - rank) * 0.003)
-                * (1 - commitment * 0.45)
+                * (rank <= 10 ? 1 : 1 - commitment * 0.45)
             : 0;
         const matchedLandColors = mana.filter((color) => main.has(color)).length;
         const landFixingBonus = card.land && mana.length > 1
@@ -200,7 +200,7 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         // Colorless artifacts are useful, but shouldn't remain an effortless
         // default once the pool is already artifact-heavy. Artifact payoffs
         // soften the penalty to permit coherent artifact decks.
-        const densityPenalty = Math.min(0.3, Math.max(0, artifactShare - 0.3) * 0.6) * Math.min(1, pool.length / 6);
+        const densityPenalty = Math.min(0.18, Math.max(0, artifactShare - 0.35) * 0.36) * Math.min(1, pool.length / 8);
         const synergyRelief = Math.max(0.35, 1 - artifactPayoffs * 0.12);
         const candidateRelief = hasArtifactPayoff(card) ? 0.5 : 1;
         const artifactBalance = isArtifact(card) ? 1 - densityPenalty * synergyRelief * candidateRelief : 1;
@@ -222,7 +222,8 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
         const latePoolPenalty = pool.length >= DECK_SIZE_TARGET
             ? Math.min(0.12, (pool.length - DECK_SIZE_TARGET + 1) * 0.015)
             : 0;
-        return (base + premiumBonus + landFixingBonus + synergyBonus + curveBonus + roleBonus - latePoolPenalty) * artifactBalance;
+        const rawScore = base + premiumBonus + landFixingBonus + synergyBonus + curveBonus + roleBonus - latePoolPenalty;
+        return isArtifact(card) ? rawScore - densityPenalty * synergyRelief * candidateRelief : rawScore;
     };
 
     // Choose among the best few, favouring the best, so bots are not predictable.

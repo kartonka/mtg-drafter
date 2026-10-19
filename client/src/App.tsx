@@ -26,7 +26,7 @@ export function App() {
 
     return (
         <div className="app">
-            <header className="topbar">
+            <header className={state?.phase === 'drafting' ? 'topbar drafting-topbar' : 'topbar'}>
                 <h1>MTG Cube Drafter</h1>
                 <PlaylistPlayer />
                 <span className={connected ? 'dot on' : 'dot'} title={connected ? 'Connected' : 'Reconnecting…'} />
@@ -43,7 +43,7 @@ export function App() {
                 {!review && state?.phase === 'lobby' && <Lobby state={state} send={send} />}
                 {!review && state?.phase === 'drafting' && deckKey && (
                     <>
-                        <nav className="tabs">
+                        <nav className="tabs drafting-tabs">
                             <button className={view === 'draft' ? 'active' : ''} onClick={() => setView('draft')}>
                                 Draft{state.draft?.pack ? ' •' : ''}
                             </button>

@@ -32,6 +32,16 @@ body {
   margin-bottom: 16px;
 }
 
+.drafting-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: -16px -24px 0;
+  padding: 16px 24px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
 .topbar h1 {
   font-size: 1.3rem;
   margin: 0;
@@ -263,10 +273,17 @@ select {
 }
 
 .draft-header {
+  position: sticky;
+  top: 108px;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 .draft-header .primary {
   margin-left: auto;
@@ -461,6 +478,15 @@ select {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+}
+.drafting-tabs {
+  position: sticky;
+  top: 62px;
+  z-index: 29;
+  margin: 0 -24px 16px;
+  padding: 8px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 }
 .tabs button.active {
   background: var(--accent);
@@ -806,6 +832,15 @@ select {
   .topbar {
     gap: 7px;
   }
+  .drafting-topbar {
+    margin: -12px -12px 0;
+    padding: 12px 12px 8px;
+  }
+  .drafting-tabs {
+    top: 52px;
+    margin: 0 -12px 12px;
+    padding: 8px 12px;
+  }
   .topbar h1 {
     font-size: 1rem;
   }
@@ -1009,6 +1044,7 @@ button,
   .draft-header {
     flex-wrap: wrap;
     gap: 4px 12px;
+    top: 92px;
   }
   .grid {
     grid-template-columns: repeat(2, 1fr);

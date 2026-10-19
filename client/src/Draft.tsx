@@ -151,6 +151,11 @@ export function Draft({ state, send, selectedIds, setSelectedIds, useLibrarian, 
                     <span className="muted">
                         {selected.length ? pack.filter((c) => selected.includes(c.id)).map((c) => c.name).join(', ') : 'Tap a card to select it'}
                     </span>
+                    {secondsLeft !== null && (
+                        <span className={secondsLeft <= 10 ? 'pick-timer urgent' : 'pick-timer'} aria-label="Time remaining">
+                            {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                        </span>
+                    )}
                     <button disabled={!lastSelected} onClick={() => setZoom(lastSelected)}>
                         Zoom
                     </button>

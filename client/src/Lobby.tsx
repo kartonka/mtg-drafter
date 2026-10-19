@@ -164,9 +164,9 @@ export function Lobby({ state, send }: Props) {
                         value={timerStrategy}
                         onChange={(e) => send({ t: 'settings', packsPerPlayer, cardsPerPack, pickCount, botStrategy, timerStrategy: e.target.value as typeof timerStrategy })}
                     >
-                        <option value="arena">Arena</option>
-                        <option value="extended">Extended (2× Arena)</option>
-                        <option value="off">Off</option>
+                        <option value="arena">Arena timer</option>
+                        <option value="extended">Extended timer</option>
+                        <option value="off">No timer</option>
                     </select>
                 </label>
                 <p className={tooFew ? 'warn' : 'muted'}>
