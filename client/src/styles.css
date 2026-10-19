@@ -695,9 +695,39 @@ select {
   flex-wrap: wrap;
   gap: 8px;
 }
+.bot-rounds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 32px;
+}
+.bot-round {
+  min-width: 0;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.bot-round h4 {
+  margin: 0 0 8px;
+}
+.bot-round-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bot-round-cards .bot-card {
+  width: 100%;
+}
 .bot-card {
   width: 110px;
   border-radius: 4.5%;
+}
+
+@media (max-width: 800px) {
+  .bot-rounds {
+    grid-template-columns: 1fr;
+  }
 }
 
 .review-pack {

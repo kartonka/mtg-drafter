@@ -35,18 +35,16 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
                     </button>
                 ))}
             </nav>
-            <div className="pick-history">
-                {bot.log.map((entry) => {
-                    const chosen = [entry.picked, ...(entry.alsoPicked ?? []), ...(entry.additionalPicked ? [entry.additionalPicked] : [])];
-                    return <section className="pick-row" key={`${entry.round}-${entry.pick}`}>
-                        <div className="pick-row-label">
-                            <strong>Pick {entry.pick}</strong>
-                            <span>Pack {entry.round}</span>
-                            <span className="picked-name">{chosen.map((card) => card.name).join(' + ')}</span>
-                        </div>
-                        <div className="pick-row-cards">
-                            {entry.pack.map((card) => <div className={`searchable-card ${chosen.some((picked) => picked.id === card.id) ? 'history-card picked' : 'history-card'}`} key={card.id}>
-                                <img src={card.image} alt={card.name} title={card.name}
+            <div className="bot-rounds">
+                {[1, 2, 3].map((round) => {
+                    const picks = bot.log
+                        .filter((entry) => entry.round === round)
+                        .flatMap((entry) => [entry.picked, ...(entry.alsoPicked ?? []), ...(entry.additionalPicked ? [entry.additionalPicked] : [])]);
+                    return <section className="bot-round" key={round}>
+                        <h4>Pack {round}</h4>
+                        <div className="bot-round-cards">
+                            {picks.map((card, index) => <div className="searchable-card bot-card-wrap" key={`${card.id}-${index}`}>
+                                <img src={card.image} alt={card.name} title={card.name} className="bot-card"
                                     onMouseEnter={(event) => hoverPreview.show(card, event.clientX, event.clientY)}
                                     onMouseLeave={hoverPreview.hide} {...longPress.bind(card)} onClick={() => longPress.consumeClick()} />
                                 <span className="card-search-text" aria-hidden="true">{card.name}</span>
