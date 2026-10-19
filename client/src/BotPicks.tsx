@@ -15,7 +15,8 @@ export function BotPicks({ bots }: { bots: TableView['botPicks'] }) {
     const bot = bots.find((b) => b.id === selectedId) ?? bots[0];
     if (!bot) return null;
 
-    const cards = [...bot.picks].sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name));
+    // Picks are appended to the draft pool in the order they were made.
+    const cards = bot.picks;
     const copy = async () => {
         await copyText(cards.map((c) => `1 ${c.name}`).join('\n'));
         setCopied(true);
