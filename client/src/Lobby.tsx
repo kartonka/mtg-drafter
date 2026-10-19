@@ -40,6 +40,15 @@ export function Lobby({ state, send }: Props) {
         send({ t: 'reorder', playerIds });
     };
 
+    const shufflePlayers = () => {
+        const playerIds = state.players.map((player) => player.id);
+        for (let i = playerIds.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [playerIds[i], playerIds[j]] = [playerIds[j], playerIds[i]];
+        }
+        send({ t: 'reorder', playerIds });
+    };
+
     const copyLink = async () => {
         await copyText(`${location.origin}/#${state.id}`);
         setCopied(true);
@@ -72,7 +81,10 @@ export function Lobby({ state, send }: Props) {
                     </p>
                 ))}
 
-                {isHost && <span className="muted seat-order-hint">Drag players to set the draft seat order.</span>}
+                {isHost && <div className="row seat-order-actions">
+                    <span className="muted seat-order-hint">Set the draft seat order.</span>
+                    <button onClick={shufflePlayers} disabled={state.players.length < 2}>Shuffle players</button>
+                </div>}
                 <ul className="players">
                     {state.players.map((p) => (
                         <li

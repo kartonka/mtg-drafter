@@ -137,6 +137,8 @@ function isRamp(card: Card) {
 }
 
 export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card {
+    const blackLotus = pack.find((card) => normalizeName(card.name) === 'black lotus');
+    if (blackLotus) return blackLotus;
     if (strategy === 'random') return pack[Math.floor(Math.random() * pack.length)];
 
     // Weight each color by the strength of the cards already taken in it.

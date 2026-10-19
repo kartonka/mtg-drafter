@@ -108,13 +108,12 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     const layout = useMemo<Layout>(() => {
         const seen = new Set<string>();
         const keep = (id: string) => !!cardOf(id) && !seen.has(id) && !!seen.add(id);
-        const eligible = picks.find(isCompanion);
-        const companion = eligible && raw.companion === eligible.id ? eligible.id : undefined;
-        if (eligible) seen.add(eligible.id);
-        const columns = raw.columns.map((col) => col.filter((id) => id !== eligible?.id && keep(id))).filter((col) => col.length > 0);
-        const pool = raw.pool.filter((id) => id !== eligible?.id && keep(id));
+        const companionCard = picks.find((card) => card.id === raw.companion && isCompanion(card));
+        const companion = companionCard?.id;
+        if (companion) seen.add(companion);
+        const columns = raw.columns.map((col) => col.filter(keep)).filter((col) => col.length > 0);
+        const pool = raw.pool.filter(keep);
         for (const c of picks.filter((c) => !seen.has(c.id)).sort(byCmcThenName)) autoPlace(columns, c.id, cardOf);
-        if (eligible && !companion) pool.push(eligible.id);
         return { columns, pool, ...(companion ? { companion } : {}) };
     }, [raw, picks, cardOf]);
 
@@ -138,9 +137,6 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     }, [done, layout, onSave]);
 
     const moveTo = (id: string, target: DropTarget) => {
-        if (isCompanion(cardOf(id)) && target.kind !== 'pool' && target.kind !== 'companion') {
-            return moveTo(id, { kind: 'companion' });
-        }
         if (target.kind === 'companion') {
             if (!isCompanion(cardOf(id))) return;
             const pool = layout.pool.filter((x) => x !== id);
@@ -167,7 +163,6 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
         hoverPreview.clear();
         if (touch) return setSelectedId(selectedId === id ? null : id);
         if (layout.pool.includes(id)) {
-            if (isCompanion(cardOf(id))) return moveTo(id, { kind: 'companion' });
             const columns = layout.columns.map((col) => [...col]);
             autoPlace(columns, id, cardOf);
             commit({ columns, pool: layout.pool.filter((x) => x !== id), ...(layout.companion ? { companion: layout.companion } : {}) });
@@ -189,10 +184,10 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
     };
     const selectedToDeck = () => {
         if (!selected) return;
-        if (isCompanion(cardOf(selected))) return moveTo(selected, { kind: 'companion' });
         const columns = layout.columns.map((col) => [...col]);
         autoPlace(columns, selected, cardOf);
-        commit({ columns, pool: layout.pool.filter((x) => x !== selected), ...(layout.companion ? { companion: layout.companion } : {}) });
+        const companion = layout.companion === selected ? undefined : layout.companion;
+        commit({ columns, pool: layout.pool.filter((x) => x !== selected), ...(companion ? { companion } : {}) });
     };
 
     const arrange = (mode: GroupMode) =>
@@ -416,12 +411,13 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
                                     New column
                                 </button>
                                 <button onClick={() => moveTo(selected, { kind: 'pool' })}>{isBasic(selected) ? 'Remove' : 'To pool'}</button>
+                                {isCompanion(cardOf(selected)) && layout.companion !== selected && <button onClick={() => moveTo(selected, { kind: 'companion' })}>Companion</button>}
                             </>
                         ) : (
                             <>
                                 {layout.companion === selected && <button onClick={() => moveTo(selected, { kind: 'pool' })}>To pool</button>}
                                 {isCompanion(cardOf(selected)) && layout.companion !== selected && <button onClick={() => moveTo(selected, { kind: 'companion' })}>Companion</button>}
-                                {layout.companion !== selected && !isCompanion(cardOf(selected)) && <button className="primary" onClick={selectedToDeck}>To deck</button>}
+                                <button className="primary" onClick={selectedToDeck}>To deck</button>
                             </>
                         )}
                         <button onClick={() => setZoom(cardOf(selected)!)}>Zoom</button>
