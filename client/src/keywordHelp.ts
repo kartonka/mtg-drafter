@@ -4,7 +4,6 @@ interface MechanicHelp {
     name: string;
     description: string;
     terms: string[];
-    cardNames?: string[];
     inTypeLine?: boolean;
 }
 
@@ -24,7 +23,7 @@ const MECHANICS: MechanicHelp[] = [
     { name: 'First strike', terms: ['first strike'], description: 'It deals combat damage in an earlier combat damage step than creatures without first strike or double strike.' },
     { name: 'Double strike', terms: ['double strike'], description: 'It deals combat damage in both the first-strike and regular combat damage steps.' },
     { name: 'Menace', terms: ['menace'], description: 'It can’t be blocked except by two or more creatures.' },
-    { name: 'Ward', terms: ['ward'], cardNames: ['Kappa Cannoneer'], description: 'When an opponent targets it with a spell or ability, that player must pay its ward cost or that spell or ability is countered.' },
+    { name: 'Ward', terms: ['ward'], description: 'When an opponent targets it with a spell or ability, that player must pay its ward cost or that spell or ability is countered.' },
     { name: 'Hexproof', terms: ['hexproof'], description: 'It can’t be targeted by spells or abilities your opponents control.' },
     { name: 'Indestructible', terms: ['indestructible'], description: 'Damage and effects that say “destroy” don’t destroy it.' },
     { name: 'Flash', terms: ['flash'], description: 'You may cast it any time you could cast an instant.' },
@@ -47,7 +46,7 @@ const MECHANICS: MechanicHelp[] = [
     { name: 'Discover', terms: ['discover'], description: 'Exile cards from the top of your library until you exile a nonland card with mana value no greater than the discover number. You may cast it without paying its mana cost or put it into your hand, then put the rest on the bottom.' },
     { name: 'Cascade', terms: ['cascade'], description: 'Exile cards from the top of your library until you exile a nonland card with lower mana value. You may cast it without paying its mana cost, then put the rest on the bottom.' },
     { name: 'Convoke', terms: ['convoke'], description: 'Your creatures can help pay for the spell: each tapped creature pays for {1} or one mana of its color.' },
-    { name: 'Improvise', terms: ['improvise'], cardNames: ['Kappa Cannoneer'], description: 'While casting the spell, tap untapped artifacts you control to pay for its generic mana, one {1} per artifact. This can’t pay colored or colorless mana symbols.' },
+    { name: 'Improvise', terms: ['improvise'], description: 'While casting the spell, tap untapped artifacts you control to pay for its generic mana, one {1} per artifact. This can’t pay colored or colorless mana symbols.' },
     { name: 'Affinity', terms: ['affinity'], description: 'The spell costs {1} less to cast for each object of the stated kind you control.' },
     { name: 'Annihilator', terms: ['annihilator'], description: 'Whenever this creature attacks, the defending player sacrifices the stated number of permanents.' },
     { name: 'Bestow', terms: ['bestow'], description: 'You may cast this as an Aura for its bestow cost. It enchants a creature and grants that creature its abilities; if it becomes unattached, it becomes a creature.' },
@@ -147,7 +146,6 @@ function hasTerm(text: string, term: string) {
 export function mechanicHelp(card: Card): { name: string; description: string }[] {
     const text = [card.oracleText, card.backOracleText, ...(card.keywords ?? [])].filter(Boolean).join('\n');
     return MECHANICS.filter((mechanic) =>
-        mechanic.cardNames?.some((name) => name.toLocaleLowerCase() === card.name.toLocaleLowerCase()) ||
         mechanic.terms.some((term) => hasTerm(text, term) || ((mechanic.inTypeLine || term === 'saga') && hasTerm(card.typeLine ?? '', term)))
     ).map(({ name, description }) => ({ name, description }));
 }

@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
-import { CubeError, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
+import { CubeError, enrichArchivedReview, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
 import { archiveDraftReview, getArchivedDraftReview, listArchivedDraftReviews } from './reviewArchive';
 import { GameError, Table, cleanName, makeTableCode } from './table';
 
@@ -171,8 +171,19 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
                 table.touch();
                 archiveCompletedDraft(table);
             }
-            const review = table?.reviewView() ?? getArchivedDraftReview(String(msg.tableId));
+            let review = table?.reviewView() ?? getArchivedDraftReview(String(msg.tableId));
             if (!review) return send(ws, { t: 'error', message: 'No completed draft with that table code.' });
+            if (!table) {
+                const enriched = await enrichArchivedReview(review);
+                review = enriched.review;
+                if (enriched.changed) {
+                    try {
+                        archiveDraftReview(review);
+                    } catch (err) {
+                        console.error('Could not update draft review metadata:', err);
+                    }
+                }
+            }
             send(ws, { t: 'review', review });
             return;
         }

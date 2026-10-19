@@ -1,4 +1,4 @@
-import type { Card } from '../../shared/protocol';
+import type { Card, DraftReviewView } from '../../shared/protocol';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -118,9 +118,9 @@ function cardMeta(c: any): Pick<Card, 'cmc' | 'colors' | 'land' | 'typeLine' | '
         colors: colors.filter((x: unknown) => typeof x === 'string'),
         land: /\bLand\b/.test(typeLine.split(' // ')[0]),
         typeLine,
-        ...(oracleText ? { oracleText } : {}),
+        oracleText,
         ...(backOracleText ? { backOracleText } : {}),
-        ...(keywords.length ? { keywords } : {}),
+        keywords,
     };
 }
 const MOXFIELD_URL = /^https?:\/\/(?:www\.)?moxfield\.com\/(cubes|decks)\/([A-Za-z0-9_-]+)/i;
@@ -341,4 +341,58 @@ async function scryfallLookup(
         fallback.push(...retryByName.map((r) => r.name).filter((n) => !retry.notFound.includes(n)));
     }
     return { found, notFound, fallback };
+}
+
+/** Adds current Scryfall rules and keyword data to pre-metadata draft archives. */
+export async function enrichArchivedReview(review: DraftReviewView): Promise<{ review: DraftReviewView; changed: boolean }> {
+    const cards = new Map<string, Card>();
+    const add = (card: Card) => cards.set(card.name.toLocaleLowerCase(), card);
+    for (const player of review.players) {
+        player.picks.forEach(add);
+        for (const entry of player.log) {
+            entry.pack.forEach(add);
+            add(entry.picked);
+            entry.alsoPicked?.forEach(add);
+            if (entry.additionalPicked) add(entry.additionalPicked);
+        }
+    }
+
+    const missing = [...cards.values()].filter((card) => card.oracleText === undefined || card.keywords === undefined);
+    if (!missing.length) return { review, changed: false };
+
+    let result: { found: ScoredCard[] };
+    try {
+        result = await scryfallLookup(missing.map((card) => ({ name: card.name })));
+    } catch {
+        // Reviews should remain available when Scryfall is temporarily unreachable.
+        return { review, changed: false };
+    }
+    const metadata = new Map(result.found.map((card) => [card.name.toLocaleLowerCase(), card]));
+    let changed = false;
+    const enrich = (card: Card): Card => {
+        const found = metadata.get(card.name.toLocaleLowerCase());
+        if (!found) return card;
+        changed = true;
+        return {
+            ...card,
+            oracleText: found.oracleText ?? '',
+            ...(found.backOracleText ? { backOracleText: found.backOracleText } : {}),
+            keywords: found.keywords ?? [],
+        };
+    };
+    const enriched: DraftReviewView = {
+        ...review,
+        players: review.players.map((player) => ({
+            ...player,
+            picks: player.picks.map(enrich),
+            log: player.log.map((entry) => ({
+                ...entry,
+                pack: entry.pack.map(enrich),
+                picked: enrich(entry.picked),
+                ...(entry.alsoPicked ? { alsoPicked: entry.alsoPicked.map(enrich) } : {}),
+                ...(entry.additionalPicked ? { additionalPicked: enrich(entry.additionalPicked) } : {}),
+            })),
+        })),
+    };
+    return { review: enriched, changed };
 }
