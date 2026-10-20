@@ -43,3 +43,40 @@ export function listArchivedDraftReviews(): ArchivedDraftSummary[] {
         })
         .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
+
+export interface TopPickCard { card: DraftReviewView['players'][number]['picks'][number]; count: number }
+export interface TopPicksView {
+    players: string[];
+    humanByPlayer: Record<string, TopPickCard[]>;
+    bots: TopPickCard[];
+}
+
+export function getTopPicks(cubeName?: string): TopPicksView {
+    const human = new Map<string, Map<string, TopPickCard>>();
+    const bots = new Map<string, TopPickCard>();
+    for (const summary of listArchivedDraftReviews().filter((item) => !cubeName || item.cubeName === cubeName)) {
+        const review = getArchivedDraftReview(summary.tableId);
+        if (!review) continue;
+        for (const player of review.players) {
+            const firstByRound = new Map<number, DraftReviewView['players'][number]['log'][number]>();
+            for (const entry of player.log) {
+                const previous = firstByRound.get(entry.round);
+                if (!previous || entry.pick < previous.pick) firstByRound.set(entry.round, entry);
+            }
+            const target = player.isBot ? bots : (human.get(player.name.trim()) ?? new Map<string, TopPickCard>());
+            if (!player.isBot) human.set(player.name.trim(), target);
+            for (const entry of firstByRound.values()) {
+                const card = entry.picked;
+                const item = target.get(card.id);
+                if (item) item.count++;
+                else target.set(card.id, { card, count: 1 });
+            }
+        }
+    }
+    const sorted = (items: Map<string, TopPickCard>) => [...items.values()].sort((a, b) => b.count - a.count || a.card.name.localeCompare(b.card.name));
+    return {
+        players: [...human.keys()].sort((a, b) => a.localeCompare(b)),
+        humanByPlayer: Object.fromEntries([...human].map(([name, items]) => [name, sorted(items)])),
+        bots: sorted(bots),
+    };
+}

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
 import { CubeError, enrichArchivedReview, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
-import { archiveDraftReview, getArchivedDraftReview, listArchivedDraftReviews } from './reviewArchive';
+import { archiveDraftReview, getArchivedDraftReview, getTopPicks, listArchivedDraftReviews } from './reviewArchive';
 import { GameError, Table, cleanName, makeTableCode } from './table';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -262,6 +262,7 @@ app.get('/api/cubes', (_req, res) => {
     }
 });
 app.get('/api/reviews', (_req, res) => res.json({ drafts: listArchivedDraftReviews() }));
+app.get('/api/top-picks', (req, res) => res.json(getTopPicks(typeof req.query.cubeName === 'string' ? req.query.cubeName : undefined)));
 app.post('/api/cubes', (req, res) => {
     try {
         res.json(saveCubeList(req.body?.name, req.body?.text));

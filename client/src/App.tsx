@@ -6,6 +6,7 @@ import { Draft } from './Draft';
 import { DraftReview } from './DraftReview';
 import { Lobby } from './Lobby';
 import { PlaylistPlayer } from './PlaylistPlayer';
+import { TopPicks } from './TopPicks';
 import { hashCode, useGame } from './useGame';
 
 export function App() {
@@ -220,6 +221,9 @@ function Home({ busy, send }: { busy: boolean; send: ReturnType<typeof useGame>[
                     </button>
                 </section>
             </div>
+            {(cubeTab === 'saved' ? selectedCube : savedCubes.find((cube) => cube.name === cubeName.trim())?.name) && (
+                <TopPicks cubeName={cubeTab === 'saved' ? selectedCube : cubeName.trim()} />
+            )}
         </div>
     );
 }

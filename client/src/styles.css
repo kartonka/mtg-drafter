@@ -192,6 +192,16 @@ select {
   margin: 0 auto;
 }
 
+.top-picks-page { margin-top: 16px; }
+.top-picks-filter { margin: 16px 0; }
+.player-checkboxes { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.player-checkboxes label { display: flex; align-items: center; gap: 7px; }
+.player-checkboxes input { width: auto; }
+.top-picks-columns { align-items: start; }
+.top-pick-list { list-style: decimal; padding-left: 28px; }
+.top-pick-list li { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.top-pick-list img { width: 42px; border-radius: 4px; }
+
 .row {
   display: flex;
   gap: 8px;
