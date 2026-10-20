@@ -264,7 +264,7 @@ export function DeckBuilder({ picks, basics, storageKey, done, initialLayout, pe
 
     return (
         <div className="deckbuilder">
-            <div className="draft-header">
+            <div className={`draft-header${done ? ' draft-complete-header' : ''}`}>
                 <h2>{done ? 'Draft complete' : 'Deck builder'}</h2>
                 <span className="muted">
                     {touch

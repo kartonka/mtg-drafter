@@ -33,9 +33,6 @@ body {
 }
 
 .drafting-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
   margin: -16px -24px 0;
   padding: 16px 24px 10px;
   background: var(--bg);
@@ -295,6 +292,9 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+.draft-complete-header {
+  position: static;
+}
 .draft-header .primary {
   margin-left: auto;
 }
@@ -533,9 +533,6 @@ select {
   margin-bottom: 16px;
 }
 .drafting-tabs {
-  position: sticky;
-  top: 62px;
-  z-index: 29;
   margin: 0 -24px 16px;
   padding: 8px 24px;
   background: var(--bg);
@@ -950,9 +947,6 @@ select {
   border-radius: 8px;
 }
 .review-pool-column h4 {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   margin: 0 0 8px;
   padding: 4px 0;
   background: var(--panel);
