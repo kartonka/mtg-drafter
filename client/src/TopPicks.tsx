@@ -52,9 +52,10 @@ export function TopPicks({ cubeName }: { cubeName: string }) {
 }
 
 function TopPickList({ title, items }: { title: string; items: RankedCard[] }) {
+    const topItems = items.slice(0, 20);
     return <section className="panel"><h3>{title}</h3>
-        {items.length === 0 ? <p className="muted">No picks to show.</p> : <ol className="top-pick-list">
-            {items.map(({ card, count }) => <li key={card.id}><img src={card.image} alt="" /><span>{card.name}</span><strong>{count}</strong></li>)}
+        {topItems.length === 0 ? <p className="muted">No picks to show.</p> : <ol className="top-pick-list">
+            {topItems.map(({ card, count }) => <li key={card.id}><img src={card.image} alt="" /><span>{card.name}</span><strong>{count}</strong></li>)}
         </ol>}
     </section>;
 }
