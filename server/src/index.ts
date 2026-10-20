@@ -1,7 +1,9 @@
 import express from 'express';
-import { existsSync } from 'node:fs';
+import { existsSync, createWriteStream } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { format } from 'node:util';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol';
 import { CubeError, enrichArchivedReview, listSavedCubeLists, loadCube, loadSavedCube, saveCubeList } from './cube';
@@ -11,6 +13,17 @@ import { GameError, Table, cleanName, makeTableCode } from './table';
 const PORT = Number(process.env.PORT ?? 3001);
 const MAX_TABLES = 200;
 const TABLE_TTL_MS = 12 * 60 * 60 * 1000;
+
+const serverLogPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../server.log');
+const serverLog = createWriteStream(serverLogPath, { flags: 'a' });
+for (const level of ['log', 'info', 'warn', 'error'] as const) {
+    const writeConsole = console[level].bind(console);
+    console[level] = (...args: unknown[]) => {
+        const line = `${new Date().toISOString()} ${format(...args)}\n`;
+        serverLog.write(line);
+        writeConsole(line.trimEnd());
+    };
+}
 
 const tables = new Map<string, Table>();
 const conns = new WeakMap<WebSocket, { tableId: string; playerId: string }>();
@@ -229,7 +242,8 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             break;
         case 'start':
             table.start(conn.playerId);
-            console.log(`Draft started: ${table.id}`);
+            const participants = table.players.filter((player) => !player.isBot).map((player) => player.name);
+            console.log(`Draft started: ${table.id} — Players: ${participants.join(', ')}`);
             break;
         case 'reservePick':
             table.reservePick(conn.playerId, msg.cardIds, msg.additionalCardId);

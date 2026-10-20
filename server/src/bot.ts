@@ -2,8 +2,8 @@ import type { BotStrategy, Card } from '../../shared/protocol';
 
 const COLORS = ['W', 'U', 'B', 'R', 'G'];
 /** Picks it takes this many cards to settle on colors. */
-const COMMIT_START = 4;
-const COMMIT_SPAN = 8;
+const COMMIT_START = 5;
+const COMMIT_SPAN = 11;
 const CANDIDATES = 3;
 const TEMPERATURE = 0.1;
 const COLORLESS_FIT = 0.55;
@@ -133,7 +133,7 @@ function isInteraction(card: Card) {
 }
 
 function isRamp(card: Card) {
-    return manaColors(card).length > 0 && /\b(?:add|search your library for .*land)\b/i.test(card.oracleText ?? '');
+    return !card.land && manaColors(card).length > 0 && /\b(?:add|search your library for .*land)\b/i.test(card.oracleText ?? '');
 }
 
 export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card {
