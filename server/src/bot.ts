@@ -75,6 +75,42 @@ const CUBE_TOP_50 = [
     'Fury',
 ].map(normalizeName);
 
+/** Recognized two-card combos in the bundled Vintage Cube. Keep these explicit:
+ * card text heuristics cannot reliably distinguish a real combo from ordinary synergy.
+ */
+const VINTAGE_CUBE_COMBOS = [
+    ['Time Vault', 'Voltaic Key'],
+    ['Time Vault', 'Manifold Key'],
+    ['Splinter Twin', 'Deceiver Exarch'],
+    ['Splinter Twin', 'Pestermite'],
+    ['Splinter Twin', 'Zealous Conscripts'],
+    ['Kiki-Jiki, Mirror Breaker', 'Deceiver Exarch'],
+    ['Kiki-Jiki, Mirror Breaker', 'Pestermite'],
+    ['Kiki-Jiki, Mirror Breaker', 'Zealous Conscripts'],
+    ['Kiki-Jiki, Mirror Breaker', 'Restoration Angel'],
+    ['Painter\'s Servant', 'Grindstone'],
+    ['Doomsday', 'Thassa\'s Oracle'],
+    ['Brain Freeze', 'Underworld Breach'],
+    ['Underworld Breach', 'Lion\'s Eye Diamond'],
+    ['Sneak Attack', 'Emrakul, the Aeons Torn'],
+    ['Show and Tell', 'Emrakul, the Aeons Torn'],
+    ['Channel', 'Emrakul, the Aeons Torn'],
+    ['Oath of Druids', 'Emrakul, the Aeons Torn'],
+    ['Reanimate', 'Griselbrand'],
+    ['Entomb', 'Reanimate'],
+    ['Goblin Welder', 'Sundering Titan'],
+    ['Goblin Engineer', 'Sundering Titan'],
+    ['Goblin Welder', 'Memory Jar'],
+    ['Goblin Engineer', 'Memory Jar'],
+    ['Echo of Eons', 'Lion\'s Eye Diamond'],
+    ['Fastbond', 'Crucible of Worlds'],
+    ['Crucible of Worlds', 'Strip Mine'],
+    ['Crucible of Worlds', 'Wasteland'],
+    ['Tinker', 'Blightsteel Colossus'],
+    ['Tainted Pact', 'Thassa\'s Oracle'],
+    ['Fastbond', 'Zuran Orb'],
+].map(([a, b]) => [normalizeName(a), normalizeName(b)] as const);
+
 const TOP_50_RANK = new Map(CUBE_TOP_50.map((name, index) => [name, index + 1] as const));
 
 const BASIC_LAND_COLORS: Record<string, string> = {
@@ -140,6 +176,17 @@ export function botPick(pack: Card[], pool: Card[], strategy: BotStrategy): Card
     const blackLotus = pack.find((card) => normalizeName(card.name) === 'black lotus');
     if (blackLotus) return blackLotus;
     if (strategy === 'random') return pack[Math.floor(Math.random() * pack.length)];
+
+    const draftedNames = new Set(pool.map((card) => normalizeName(card.name)));
+    const comboPartners = new Set<string>();
+    for (const [a, b] of VINTAGE_CUBE_COMBOS) {
+        if (draftedNames.has(a)) comboPartners.add(b);
+        if (draftedNames.has(b)) comboPartners.add(a);
+    }
+    const seenCombo = pack
+        .filter((card) => comboPartners.has(normalizeName(card.name)))
+        .sort((a, b) => b.power - a.power)[0];
+    if (seenCombo) return seenCombo;
 
     // Weight each color by the strength of the cards already taken in it.
     const weight = Object.fromEntries(COLORS.map((c) => [c, 0]));
