@@ -16,6 +16,7 @@ const tables = new Map<string, Table>();
 const conns = new WeakMap<WebSocket, { tableId: string; playerId: string }>();
 const creating = new WeakSet<WebSocket>();
 const archivedInProcess = new Set<string>();
+const completionLogged = new Set<string>();
 const draftTimers = new WeakMap<Table, Map<string, ReturnType<typeof setTimeout>>>();
 
 const send = (ws: WebSocket, msg: ServerMsg) => {
@@ -88,7 +89,13 @@ function broadcast(table: Table) {
 }
 
 function archiveCompletedDraft(table: Table) {
-    if (table.phase !== 'done' || archivedInProcess.has(table.id)) return;
+    if (table.phase !== 'done') return;
+    if (!completionLogged.has(table.id)) {
+        const inProgress = [...tables.values()].filter((activeTable) => activeTable.phase === 'drafting').length;
+        console.log(`Draft concluded: ${table.id} (${inProgress} still in progress)`);
+        completionLogged.add(table.id);
+    }
+    if (archivedInProcess.has(table.id)) return;
     try {
         archiveDraftReview(table.reviewView());
         archivedInProcess.add(table.id);
@@ -140,6 +147,7 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
                 while (tables.has(id)) id = makeTableCode();
                 const table = new Table(id, cube);
                 tables.set(id, table);
+                console.log(`Table created: ${id}`);
                 const player = table.addHuman(name, ws);
                 attach(ws, table, player.id);
                 broadcast(table);
@@ -221,6 +229,7 @@ async function handle(ws: WebSocket, msg: ClientMsg) {
             break;
         case 'start':
             table.start(conn.playerId);
+            console.log(`Draft started: ${table.id}`);
             break;
         case 'reservePick':
             table.reservePick(conn.playerId, msg.cardIds, msg.additionalCardId);
